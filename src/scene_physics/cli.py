@@ -68,7 +68,7 @@ def cmd_check(args):
     from scene_physics import paths
     from scene_physics.authoring import workflow
 
-    path = paths.resolve_scene(args.scene)
+    path = paths.resolve_scene(args.scene, prefer="authoring")
     workflow.check_scene(path, _config(args, path), gui=args.gui, gif=not args.no_gif)
 
 
@@ -76,7 +76,7 @@ def cmd_finalize(args):
     from scene_physics import paths
     from scene_physics.authoring import workflow
 
-    path = paths.resolve_scene(args.scene)
+    path = paths.resolve_scene(args.scene, prefer="authoring")
     cfg = _config(args, path)
     workflow.finalize_scene(path, cfg, name=args.name, experiment=args.exp, settle=not args.no_settle,
                             target=args.target, render=not args.no_render, regenerate_priors=not args.keep_priors,
@@ -95,7 +95,7 @@ def cmd_open(args):
     from scene_physics import paths
     from scene_physics.authoring import workflow
 
-    path = paths.resolve_scene(args.scene)
+    path = paths.resolve_scene(args.scene, prefer="authoring")
     workflow.open_in_editor(path, _config(args, path))
 
 

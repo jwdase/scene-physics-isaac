@@ -109,7 +109,7 @@ def check_scene(scene_path: str | Path, config: Config, *, gui: bool = False, gi
     """Simulate + render + occlusion report. Nothing in the scene file changes."""
     from scene_physics.scene import load_scene
 
-    scene_path = paths.resolve_scene(scene_path)
+    scene_path = paths.resolve_scene(scene_path, prefer="authoring")
     _launch(headless=not gui)
     from scene_physics.authoring import analysis
     from scene_physics.isaac import app
@@ -267,7 +267,7 @@ def finalize_scene(scene_path: str | Path, config: Config, *, name: str | None =
                    settle: bool = True, target: str | None = None, render: bool = True, regenerate_priors: bool = True,
                    strict: bool = False, overwrite: bool = False) -> Path:
     """Produce the finished scene ``data/<experiment>/<name>/``."""
-    scene_path = paths.resolve_scene(scene_path)
+    scene_path = paths.resolve_scene(scene_path, prefer="authoring")
     _launch()  # Kit must start before anything imports pxr / warp
     from scene_physics.authoring import analysis
     from scene_physics.isaac.simulator import SceneSimulator
@@ -401,18 +401,20 @@ def migrate_legacy(legacy_dir: str | Path, config: Config, *, name: str | None =
 # ============================================================================================ editor
 
 
-def open_in_editor(scene_path: str | Path, config: Config) -> None:
+def open_in_editor(scene_path: str | Path, config: Config, *, headless: bool = False, max_frames: int | None = None) -> None:
     """Open the scene in the Isaac Sim editor with the studio look and the scene camera.
 
     PhysX is forced (the full experience would otherwise switch to Newton). Edit, then save with
-    Ctrl+S; the look lives in the session layer and is not saved into the scene.
+    Ctrl+S; the look lives in the session layer and is not saved into the scene. ``headless`` and
+    ``max_frames`` exist for tests.
     """
-    scene_path = paths.resolve_scene(scene_path)
+    scene_path = paths.resolve_scene(scene_path, prefer="authoring")
     from scene_physics.isaac import app
 
-    app.launch(headless=False, experience="isaacsim.exp.full.kit", quiet=True,
+    app.launch(headless=headless, experience="isaacsim.exp.full.kit", quiet=True,
                extra_args=["--/exts/isaacsim.core.simulation_manager/default_engine=physx",
-                           "--/exts/isaacsim.physics.newton/auto_switch_on_startup=false"])
+                           "--/exts/isaacsim.physics.newton/auto_switch_on_startup=false",
+                           "--/isaac/startup/ros_bridge_extension="])
     import omni.usd
 
     from scene_physics.isaac import environment
@@ -425,6 +427,11 @@ def open_in_editor(scene_path: str | Path, config: Config) -> None:
     usd_io.apply_physics(stage, config.physics)
     environment.apply_studio(stage, table_paths=environment.table_paths(stage))
     _set_viewport_camera()
+    from isaacsim.core.simulation_manager import SimulationManager
+
+    SimulationManager.set_device(config.physics.device)
     _log(f"editing {scene_path}. Press Play to watch the physics; Ctrl+S saves the scene (not the look).")
-    while app.get().is_running():
+    frames = 0
+    while app.get().is_running() and (max_frames is None or frames < max_frames):
         app.update(1)
+        frames += 1

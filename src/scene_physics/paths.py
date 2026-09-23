@@ -59,13 +59,16 @@ def scene_dir(experiment: str, scene: str) -> Path:
     return data_dir() / experiment / scene
 
 
-def resolve_scene(spec: str | Path) -> Path:
-    """Accept a path to a scene file/directory, or ``<experiment>/<scene>`` under ``data/``.
+def resolve_scene(spec: str | Path, prefer: str = "data") -> Path:
+    """Accept a path to a scene file/directory, or ``<experiment>/<scene>`` under ``data/`` or
+    ``authoring/``. ``prefer`` decides which tree wins when the scene exists in both (authoring
+    commands edit the authoring copy; everything else reads the finished scene).
 
     Returns the path of the scene USD file.
     """
     p = Path(spec)
-    candidates = [p, data_dir() / p, authoring_dir() / p]
+    trees = [data_dir(), authoring_dir()] if prefer == "data" else [authoring_dir(), data_dir()]
+    candidates = [p] + [t / p for t in trees]
     for c in candidates:
         if c.is_file():
             return c.resolve()
