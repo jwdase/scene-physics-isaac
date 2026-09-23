@@ -35,16 +35,41 @@ def asset_path(asset: str) -> Path:
     return library_dir() / f"{safe_prim_name(asset)}.usd"
 
 
+def footprint_yaw(xy: np.ndarray) -> float:
+    """Yaw that turns a footprint into its smallest axis-aligned rectangle, long side along x."""
+    from scipy.spatial import ConvexHull
+
+    try:
+        hull = xy[ConvexHull(xy).vertices]
+    except Exception:  # degenerate footprint (a line or a point)
+        return 0.0
+    edges = np.roll(hull, -1, axis=0) - hull
+    best = (np.inf, 0.0)
+    for angle in np.arctan2(edges[:, 1], edges[:, 0]):
+        c, s = np.cos(-angle), np.sin(-angle)
+        r = hull @ np.array([[c, s], [-s, c]])
+        ext = r.max(axis=0) - r.min(axis=0)
+        area = ext[0] * ext[1]
+        if area < best[0] - 1e-12:
+            best = (area, angle if ext[0] >= ext[1] else angle + np.pi / 2)
+    return float(best[1])
+
+
 def resting_mesh(obj: SceneObject) -> Mesh:
-    """The object's mesh as it stands in the scene, re-centred: XY footprint centre at the origin, bottom at z=0."""
+    """The object's mesh as it rests in the scene (same tilt against gravity), turned about z so its
+    footprint is axis-aligned with the long side along x, then re-centred: footprint centre at the
+    origin, bottom at z = 0."""
     world = obj.world_points.astype(np.float64)
-    lo, hi = world.min(axis=0), world.max(axis=0)
+    yaw = footprint_yaw(world[:, :2])
+    c, s = np.cos(-yaw), np.sin(-yaw)
+    turned = world @ np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+    lo, hi = turned.min(axis=0), turned.max(axis=0)
     offset = np.array([(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2]])
-    return Mesh(world - offset, obj.mesh.triangles)
+    return Mesh(turned - offset, obj.mesh.triangles)
 
 
 def write_asset(asset: str, mesh: Mesh, *, dynamic: bool, color, look: dict, physics: PhysicsConfig | None = None,
-                source: str = "", overwrite: bool = False) -> Path:
+                source: str = "", instances: int = 1, overwrite: bool = False) -> Path:
     path = asset_path(asset)
     if path.exists() and not overwrite:
         return path
@@ -67,6 +92,7 @@ def write_asset(asset: str, mesh: Mesh, *, dynamic: bool, color, look: dict, phy
     usd_io.set_attr(root.GetPrim(), S.COLOR, Gf.Vec3f(*[float(c) for c in color]), "Color3f")
     usd_io.set_attr(root.GetPrim(), "sp:library:source", source)
     usd_io.set_attr(root.GetPrim(), "sp:library:dynamic", bool(dynamic))
+    usd_io.set_attr(root.GetPrim(), "sp:library:instances", int(instances), "Int")
     stage.GetRootLayer().Save()
     return path
 
@@ -86,6 +112,7 @@ def read_asset(asset: str) -> tuple[Mesh, dict]:
         "color": tuple(float(c) for c in color) if color is not None else looks.color_for(asset),
         "dynamic": bool(usd_io.get_attr(root, "sp:library:dynamic", True)),
         "source": usd_io.get_attr(root, "sp:library:source", ""),
+        "instances": int(usd_io.get_attr(root, "sp:library:instances", 1)),
     }
     return mesh, info
 
@@ -94,24 +121,79 @@ def list_assets() -> list[str]:
     return sorted(p.stem for p in library_dir().glob("*.usd"))
 
 
+def _instability(obj: SceneObject, moved_m: float = 0.005, moved_deg: float = 2.0) -> float:
+    """How far an object moved when its scene was simulated, in units of the settle thresholds (0 = unknown)."""
+    d = (obj.settle_displacement or 0.0) / moved_m
+    r = (obj.settle_rotation_deg or 0.0) / moved_deg
+    return max(d, r)
+
+
+def _same_size(a: np.ndarray, b: np.ndarray, rel: float = 0.02) -> bool:
+    return bool(np.all(np.abs(a - b) <= rel * np.maximum(a, b)))
+
+
+def _representative(instances: list[tuple[Scene, SceneObject]], max_angle_deg: float = 5.0):
+    """The instance whose resting pose the asset takes: from the most common way the object rests
+    (instances grouped by which way is up in the object's own frame; groups with an instance that
+    stayed put come first), the flattest instance that stayed put, else the one that moved least."""
+    cos_max = np.cos(np.radians(max_angle_deg))
+    groups: list[list[tuple[np.ndarray, Scene, SceneObject]]] = []
+    for scene, obj in instances:
+        up = geometry.pose_to_matrix(obj.pose)[:3, :3].T @ np.array([0.0, 0.0, 1.0])  # world up, object frame
+        for g in groups:
+            if float(np.dot(g[0][0], up)) >= cos_max:
+                g.append((up, scene, obj))
+                break
+        else:
+            groups.append([(up, scene, obj)])
+    groups.sort(key=lambda g: (not any(_instability(o) <= 1.0 for _, _, o in g), -len(g)))
+    stable = [t for t in groups[0] if _instability(t[2]) <= 1.0]
+    if stable:  # the flattest of them (a slight lean against a neighbour raises the resting height)
+        _, scene, obj = min(stable, key=lambda t: float(np.ptp(t[2].world_points[:, 2])))
+    else:
+        _, scene, obj = min(groups[0], key=lambda t: _instability(t[2]))
+    return scene, obj
+
+
 def extract_from_scenes(scenes: list[Scene], *, overwrite: bool = False, physics: PhysicsConfig | None = None,
                         log=print) -> list[Path]:
-    """One asset per base name, taken from the first scene that contains it."""
-    written, seen = [], set()
+    """One asset per mesh *and size*: the experiments scale the same mesh differently from scene to
+    scene (blocks of several proportions, 10 and 20 cm coasters), so every size variant is kept. The
+    most common variant gets the base name, the others ``<name>_v2``, ``_v3``, ... in order of use.
+    Each asset rests the way the object most often rests in the experiments, taken from an instance
+    that stayed put when its scene was simulated (``sp:settle:*``)."""
+    variants: dict[str, list[dict]] = {}  # base name -> [{size, instances: [(scene, obj)]}]
     for scene in scenes:
         for obj in scene:
-            asset = obj.asset or base_asset_name(obj.name)
-            if asset in seen:
-                continue
-            seen.add(asset)
+            base = obj.asset or base_asset_name(obj.name)
+            size = obj.mesh.extents.astype(np.float64)  # object frame, scale baked in
+            groups = variants.setdefault(base, [])
+            for g in groups:
+                if _same_size(g["size"], size):
+                    g["instances"].append((scene, obj))
+                    break
+            else:
+                groups.append({"size": size, "instances": [(scene, obj)]})
+    written = []
+    for base, groups in variants.items():
+        groups.sort(key=lambda g: -len(g["instances"]))  # stable: ties keep first-seen order
+        for k, g in enumerate(groups):
+            asset = base if k == 0 else f"{base}_v{k + 1}"
+            scene, obj = _representative(g["instances"])
+            score = _instability(obj)
             existed = asset_path(asset).exists()
-            path = write_asset(asset, resting_mesh(obj), dynamic=obj.dynamic, color=obj.color,
-                               look=obj.material or looks.look_for(asset), physics=physics,
-                               source=f"{scene.name}/{obj.name}", overwrite=overwrite)
-            ext = obj.mesh.extents
+            mesh = resting_mesh(obj)
+            path = write_asset(asset, mesh, dynamic=obj.dynamic, color=obj.color,
+                               look=obj.material or looks.look_for(base), physics=physics,
+                               source=f"{scene.name}/{obj.name}", instances=len(g["instances"]), overwrite=overwrite)
+            ext = mesh.extents
             state = "kept" if existed and not overwrite else "wrote"
-            log(f"{state} {path.name:48s} {'static ' if not obj.dynamic else 'dynamic'} "
-                f"{ext[0] * 100:6.1f} x {ext[1] * 100:6.1f} x {ext[2] * 100:6.1f} cm  (from {scene.name}/{obj.name})")
+            log(f"{state} {path.name:52s} {'static ' if not obj.dynamic else 'dynamic'} "
+                f"{ext[0] * 100:6.1f} x {ext[1] * 100:6.1f} x {ext[2] * 100:6.1f} cm  used {len(g['instances']):2d}x "
+                f"(from {scene.name}/{obj.name})")
+            if score > 1.0 and not (existed and not overwrite):
+                log(f"warning: {asset}: every instance moved when simulated (least: {obj.settle_displacement * 1000:.0f} mm, "
+                    f"{obj.settle_rotation_deg:.0f} deg in {scene.name}); it may not rest the way it is stored")
             written.append(path)
     return written
 
@@ -153,15 +235,23 @@ def overlapping(scene: Scene, obj: SceneObject) -> list[str]:
 
 def add_object(scene_path: str | Path, asset: str, *, at: tuple[float, float] | None = None,
                yaw_deg: float | None = None, name: str | None = None, tags: list[str] | None = None,
-               drop: float = 0.001, rng: np.random.Generator | None = None,
+               drop: float = 0.001, rng: np.random.Generator | None = None, scale=None,
                physics: PhysicsConfig | None = None, log=print) -> str:
-    """Add a library asset to a scene file, standing on the support surface. Returns the object name."""
+    """Add a library asset to a scene file, standing on the support surface. Returns the object name.
+
+    ``scale``: one factor or three (x, y, z in the asset's resting frame; z is height).
+    """
     from scene_physics.scene.usd_io import read_scene
 
     rng = rng or np.random.default_rng()
     scene_path = Path(scene_path)
     scene = read_scene(scene_path)
     mesh, info = read_asset(asset)
+    if scale is not None:
+        factors = np.broadcast_to(np.asarray(scale, dtype=np.float64).reshape(-1), (3,))
+        if np.any(factors <= 0):
+            raise ValueError(f"scale must be positive, got {scale}")
+        mesh = Mesh(mesh.points * factors, mesh.triangles)  # bottom stays at z = 0, footprint centred
     x_min, x_max, y_min, y_max = scene.support_bounds(margin=0.05)
     if at is None:
         at = (float(rng.uniform(x_min, x_max)), float(rng.uniform(y_min, y_max)))

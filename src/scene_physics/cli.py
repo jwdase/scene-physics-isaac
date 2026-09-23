@@ -264,7 +264,8 @@ def cmd_library(args):
         for n in names:
             mesh, info = library.read_asset(n)
             e = mesh.extents * 100
-            print(f"  {n:48s} {'dynamic' if info['dynamic'] else 'static '}  {e[0]:6.1f} x {e[1]:6.1f} x {e[2]:6.1f} cm")
+            print(f"  {n:52s} {'dynamic' if info['dynamic'] else 'static '}  {e[0]:6.1f} x {e[1]:6.1f} x {e[2]:6.1f} cm"
+                  f"  used {info['instances']:2d}x  ({info['source']})")
         return
     specs = args.scenes or [str(p) for p in sorted(paths.data_dir().rglob("scene.usd"))]
     if not specs:
@@ -298,9 +299,11 @@ def cmd_add(args):
 
     path = paths.resolve_scene(args.scene, prefer="authoring")
     cfg = _config(args, path)
+    if args.scale is not None and len(args.scale) not in (1, 3):
+        raise SystemExit("--scale takes one factor or three (x y z)")
     name = library.add_object(path, args.asset, at=tuple(args.at) if args.at else None, yaw_deg=args.yaw,
                               name=args.name, tags=args.tag, rng=np.random.default_rng(args.seed),
-                              physics=cfg.physics)
+                              scale=args.scale, physics=cfg.physics)
     print(f"[sp] added {name} to {path}")
 
 
@@ -427,6 +430,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--yaw", type=float, help="rotation about z in degrees (default: random)")
     s.add_argument("--name")
     s.add_argument("--tag", nargs="*", help="annotations, e.g. target occluder")
+    s.add_argument("--scale", nargs="+", type=float, help="resize: one factor, or three (x y z; z is height)")
     s.add_argument("--seed", type=int)
     common(s)
     s.set_defaults(func=cmd_add, needs_kit=False)
