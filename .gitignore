@@ -216,3 +216,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---- scene-physics-isaac ----
+# Datasets and authoring work are large, regenerable outputs (see README "Data layout").
+/data/
+/authoring/
+# Heavy render assets are fetched by scripts/fetch_assets.sh
+/assets/textures/
+/assets/hdri/
+# Built object library (sp library build)
+/assets/objects/
+# Inference / analysis outputs
+/results/
+# Scratch space for experiments
+/.scratch/
+# Isaac Sim / Kit caches
+*.kit.log
