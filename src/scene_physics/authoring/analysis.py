@@ -147,3 +147,23 @@ def validate(scene: Scene) -> list[str]:
     if not scene.with_role("hidden"):
         problems.append("no hidden object to infer")
     return problems
+
+
+def stray_bodies(stage) -> list[str]:
+    """Rigid bodies / colliders that are not under /World/Objects (the model only sees objects there).
+
+    Happens when an asset is dragged into the Isaac Sim editor at the top level instead of into
+    /World/Objects.
+    """
+    from pxr import UsdPhysics
+
+    from scene_physics.scene import schema as S
+
+    out = []
+    for prim in stage.Traverse():
+        path = prim.GetPath().pathString
+        if path.startswith(S.OBJECTS + "/") or path.startswith(S.GROUND) or path.startswith("/World/Look"):
+            continue
+        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+            out.append(path)
+    return out

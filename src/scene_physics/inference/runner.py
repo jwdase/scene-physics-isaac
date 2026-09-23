@@ -162,5 +162,22 @@ def config_for_run(args) -> tuple[Path, Config]:
 
 
 def main(args) -> None:
-    path, cfg = config_for_run(args)
-    run_inference(path, cfg, out_dir=args.out, tag=args.tag)
+    """One Isaac Sim session for every scene given (``sp infer data/data-set/scene0*``)."""
+    import argparse
+
+    scenes = args.scene if isinstance(args.scene, list) else [args.scene]
+    if args.out and len(scenes) > 1:
+        raise ValueError("--out only works with a single scene")
+    failed = []
+    for spec in scenes:
+        one = argparse.Namespace(**{**vars(args), "scene": spec})
+        try:
+            path, cfg = config_for_run(one)
+            run_inference(path, cfg, out_dir=args.out, tag=args.tag)
+        except Exception as exc:
+            if len(scenes) == 1:
+                raise
+            failed.append(spec)
+            print(f"[sp] FAILED {spec}: {exc}", flush=True)
+    if failed:
+        raise SystemExit(f"{len(failed)} of {len(scenes)} scenes failed: {', '.join(failed)}")

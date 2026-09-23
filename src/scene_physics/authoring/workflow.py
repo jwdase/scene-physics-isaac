@@ -123,6 +123,7 @@ def check_scene(scene_path: str | Path, config: Config, *, gui: bool = False, gi
     t0 = time.time()
 
     stage, renderer = _render_setup(scene_path, scene, config, scale=1.0)
+    stray = analysis.stray_bodies(stage)
     if gui:
         _set_viewport_camera()
     before = renderer.capture("preview")
@@ -185,6 +186,9 @@ def check_scene(scene_path: str | Path, config: Config, *, gui: bool = False, gi
     if decision.target:
         lines.append(f"   target: {decision.target}")
     lines += [f"   warning: {w}" for w in decision.warnings]
+    if stray:
+        lines.append(f"   warning: rigid bodies outside /World/Objects are ignored by the model: {', '.join(stray)} "
+                     "(move them under /World/Objects in the Stage panel)")
     lines += ["", f"images: {out_dir}/check.png (before | after | segmentation), settle.gif", f"wall time {time.time() - t0:.1f} s"]
     text = "\n".join(lines)
     (out_dir / "report.txt").write_text(text + "\n")

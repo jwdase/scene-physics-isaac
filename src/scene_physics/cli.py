@@ -8,6 +8,10 @@
     uv run sp info   data-set/scene053                        # readable summary of a scene
     uv run sp infer  data-set/scene053 --num-worlds 64        # the model (remote server)
 
+    uv run sp new data-set/scene060                           # author without Blender: table + camera,
+    uv run sp add data-set/scene060 jug04 --at 0.1 -0.2       # then objects from the library
+    uv run sp library list
+
 Scenes can be given as a path (``scene.usd`` or its directory) or as ``<experiment>/<scene>``, looked
 up under ``data/`` and then ``authoring/``.
 """
@@ -205,6 +209,57 @@ def cmd_priors(args):
     print(scene.summary())
 
 
+def cmd_library(args):
+    from scene_physics import paths
+    from scene_physics.scene import library, load_scene
+
+    if args.action == "list":
+        names = library.list_assets()
+        if not names:
+            print("[sp] the library is empty; run `sp library extract` (after finalizing or migrating scenes)")
+        for n in names:
+            mesh, info = library.read_asset(n)
+            e = mesh.extents * 100
+            print(f"  {n:48s} {'dynamic' if info['dynamic'] else 'static '}  {e[0]:6.1f} x {e[1]:6.1f} x {e[2]:6.1f} cm")
+        return
+    specs = args.scenes or [str(p) for p in sorted(paths.data_dir().rglob("scene.usd"))]
+    if not specs:
+        raise SystemExit("no scenes found under data/; pass scene paths explicitly")
+    scenes = [load_scene(s) for s in specs]
+    library.extract_from_scenes(scenes, overwrite=args.overwrite, log=lambda m: print(f"[sp] {m}"))
+
+
+def cmd_new(args):
+    from scene_physics import paths
+    from scene_physics.scene import library
+
+    if "/" not in args.scene:
+        raise SystemExit("name the scene as <experiment>/<name>, e.g. data-set/scene060")
+    exp, name = args.scene.split("/", 1)
+    cfg = _config(argparse.Namespace(exp=args.exp or exp, config=args.config))
+    from scene_physics.camera import DEFAULT_CAMERA
+
+    out = paths.authoring_dir() / exp / f"{name}.usd"
+    if out.exists() and not args.overwrite:
+        raise FileExistsError(f"{out} exists (use --overwrite)")
+    library.new_scene(out, name, cfg.camera or DEFAULT_CAMERA, table=args.table, experiment=exp, physics=cfg.physics)
+    print(f"[sp] new scene {out} (table {args.table}); add objects with `sp add {args.scene} <asset> --at X Y`")
+
+
+def cmd_add(args):
+    import numpy as np
+
+    from scene_physics import paths
+    from scene_physics.scene import library
+
+    path = paths.resolve_scene(args.scene, prefer="authoring")
+    cfg = _config(args, path)
+    name = library.add_object(path, args.asset, at=tuple(args.at) if args.at else None, yaw_deg=args.yaw,
+                              name=args.name, tags=args.tag, rng=np.random.default_rng(args.seed),
+                              physics=cfg.physics)
+    print(f"[sp] added {name} to {path}")
+
+
 def cmd_infer(args):
     from scene_physics.inference import runner
 
@@ -300,8 +355,32 @@ def build_parser() -> argparse.ArgumentParser:
     common(s)
     s.set_defaults(func=cmd_priors, needs_kit=False)
 
-    s = sub.add_parser("infer", help="run the model on a scene (importance sampling over N worlds)")
+    s = sub.add_parser("library", help="object library: `extract` assets from scenes, or `list` them")
+    s.add_argument("action", choices=["extract", "list"])
+    s.add_argument("scenes", nargs="*", help="scenes to extract from (default: every scene under data/)")
+    s.add_argument("--overwrite", action="store_true")
+    s.set_defaults(func=cmd_library, needs_kit=False)
+
+    s = sub.add_parser("new", help="new authoring scene with the table and the experiment camera")
+    s.add_argument("scene", help="<experiment>/<name>")
+    s.add_argument("--table", default="dining_room_table", help="library asset used as the table")
+    s.add_argument("--overwrite", action="store_true")
+    common(s)
+    s.set_defaults(func=cmd_new, needs_kit=False)
+
+    s = sub.add_parser("add", help="add a library object to an authoring scene, standing on the table")
     s.add_argument("scene")
+    s.add_argument("asset")
+    s.add_argument("--at", nargs=2, type=float, metavar=("X", "Y"), help="table position (default: random)")
+    s.add_argument("--yaw", type=float, help="rotation about z in degrees (default: random)")
+    s.add_argument("--name")
+    s.add_argument("--tag", nargs="*", help="annotations, e.g. target occluder")
+    s.add_argument("--seed", type=int)
+    common(s)
+    s.set_defaults(func=cmd_add, needs_kit=False)
+
+    s = sub.add_parser("infer", help="run the model on scenes (importance sampling over N worlds)")
+    s.add_argument("scene", nargs="+", help="one or more scenes (one Isaac Sim session for all)")
     s.add_argument("--num-worlds", "-N", type=int, help="parallel worlds (default: config / $NUM_WORLDS)")
     s.add_argument("--iterations", "-n", type=int, help="Gibbs iterations (default: config / $NUM_EPOCHS)")
     s.add_argument("--seed", type=int)
