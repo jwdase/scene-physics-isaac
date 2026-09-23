@@ -27,17 +27,19 @@ GPU.
 | Resting contact / stacking | TGS solver designed for stacking and high mass ratios; stabilization; per-body solver iterations | MuJoCo soft contacts allow penetration by design; the old XPBD path needed a box-collider workaround for tunnelling and blew up on interpenetrating proposals |
 | Interpenetrating proposals (common: the sampler drops the hidden object anywhere) | `maxDepenetrationVelocity` caps how fast overlapping bodies separate, so bad hypotheses move smoothly instead of exploding | No equivalent cap in XPBD; MuJoCo contact buffer (`nconmax`, default 200/world) **silently drops** excess contacts |
 | Concave objects (mugs, bowls, jugs) | Convex decomposition or SDF colliders for dynamic bodies | MuJoCo collides meshes by convex hull only (cavities are lost) |
-| Determinism | Same inputs give bit-identical results on the same GPU; *enhanced determinism* makes each island independent of the other islands (other worlds) | Old XPBD path was measured non-deterministic (atomic contact accumulation), which caused the "wandering max" in the likelihood plots |
+| Determinism | Same inputs give the same results on the same GPU (to ~1e-6 m in practice); *enhanced determinism* makes each island independent of the other islands (other worlds) | Old XPBD path was measured non-deterministic (atomic contact accumulation), which caused the "wandering max" in the likelihood plots |
 | N parallel worlds | Env cloning with physics replication and **env IDs** (co-located worlds that cannot collide), batched GPU pose I/O through `omni.physics.tensors` | Also supported, but through the experimental integration |
 
 **Measured on this machine (RTX 3070, `.scratch/` experiments during the rewrite):**
 
 * A real hand-authored scene (`data-pipeline/stage/scene001.usdc`) under PhysX GPU/TGS at 120 Hz with
-  convex-decomposition colliders: after 2 s every object moved less than 2 mm (the loaf settles 1.9 mm
-  into the table, everything else under 0.2 mm); a further 2 s moves nothing. 240 steps took 0.7 s.
-* Two cloned worlds: identical inputs give **bit-identical** outputs across repeated runs, and changing
-  everything in world 1 leaves world 0's result unchanged **to the last bit** (co-located env-ID worlds
-  and spaced grid worlds behave the same).
+  convex-decomposition colliders comes to rest within 0.5 s of simulated time: the loaf settles 3.9 mm
+  and tilts 4 degrees, every other object moves under 0.5 mm, and a further 2 s moves nothing (< 0.06 mm).
+  240 steps take 0.7 s. All 52 legacy `data-set` scenes were run through the same check (see `sp migrate`).
+* Two cloned worlds: repeated rollouts from the same input agree to ~2 micrometres (bit-identical when
+  the preceding history is the same), and changing everything in world 1 moves world 0's result by at
+  most ~2 micrometres, often exactly 0 (co-located env-ID worlds and spaced grid worlds behave the same).
+  The old XPBD path varied by millimetres.
 
 Decision: **PhysX**, GPU pipeline, TGS solver, enhanced determinism, convex decomposition for dynamic
 objects, triangle-mesh colliders for static ones. Newton remains one config switch away should its
