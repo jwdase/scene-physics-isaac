@@ -39,6 +39,20 @@ uv run sp check data-set/scene053 --gui                  # or watch the physics 
 uv run sp finalize data-set/scene053                     # -> data/data-set/scene053/
 ```
 
+**Without Blender.** `sp library extract` turns the objects of the finished (or migrated) scenes into
+an object library, `assets/objects/<asset>.usd`: every size variant used in the experiments (the most
+used size keeps the base name, others are `_v2`, `_v3`, ...), standing the way it rests on the table.
+Then build a scene from the command line and arrange it in the editor:
+
+```bash
+uv run sp library list                                              # assets, sizes, how often used
+uv run sp new data-set/scene060                                     # table + the experiment camera
+uv run sp add data-set/scene060 jug04 --at 0.0 -0.05 --yaw 0        # x, y on the table (metres)
+uv run sp add data-set/scene060 square_wood_block --at 0.0 0.09 --tag target   # behind the jug
+uv run sp add data-set/scene060 coffeemug --at -0.25 0.05 --scale 1.2          # resized copy
+uv run sp check data-set/scene060        # then sp open / sp finalize as above
+```
+
 To change a finished scene, bring it back for editing with `sp import data/data-set/scene041` (roles,
 tags and priors come along), then `sp check` / `sp open` / `sp finalize --overwrite` as above.
 
