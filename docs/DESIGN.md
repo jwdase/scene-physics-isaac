@@ -77,6 +77,7 @@ data/<experiment>/<scene>/
     segmentation.png # uint8 object ids, 0 = background; PNG text chunk "labels" = {name: id}
     overlay.png      # QA: segmentation over the stimulus, hidden objects outlined
     target.png       # amodal silhouette of the target, filled with its colour (as before)
+    depth.png        # depth to the image plane, 16-bit millimetres (RGB-D models)
 ```
 
 `scene.usd` (Z-up, metres, `defaultPrim = /World`):
@@ -115,8 +116,15 @@ format keeps them separate:
 ## 4. Authoring workflow (manual scenes)
 
 ```
-Blender or Isaac Sim  ->  sp import   ->  sp check   ->  (fix, repeat)  ->  sp finalize
+Blender export  ->  sp import  -\
+                                 >-  sp check  ->  (sp open: fix in Isaac Sim, repeat)  ->  sp finalize
+sp new + sp add (library)  -----/
 ```
+
+Scenes can still come from Blender, or be built without it: `sp library extract` turns the objects of
+finished scenes into small physics-ready asset files (same size and look as in the experiments),
+`sp new <exp>/<name>` starts a scene with the table and the experiment camera, and `sp add` drops
+library objects onto the table; `sp open` is then used to arrange them.
 
 * `sp import <export.usdc> --exp data-set --name scene053`: converts a Blender USD export (or an
   Isaac-authored stage) into the canonical structure under `authoring/<exp>/<name>.usd`.
