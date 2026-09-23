@@ -46,3 +46,8 @@ def test_extract_new_add(root):
     assert np.allclose(b.pose[:2], [0.05, -0.1]) and b.tags == ["target"]
     with pytest.raises(ValueError):
         library.add_object(path, "square_wood_block", at=(3.0, 0.0))  # off the table
+    warnings = []
+    library.add_object(path, "square_wood_block", at=(0.06, -0.1), yaw_deg=0, log=warnings.append)
+    assert len(warnings) == 1 and name in warnings[0]  # dropped into the first block
+    library.add_object(path, "square_wood_block", at=(0.3, 0.1), yaw_deg=0, log=warnings.append)
+    assert len(warnings) == 1  # clear of both

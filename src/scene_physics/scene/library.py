@@ -138,10 +138,23 @@ def _unique_name(existing: set[str], asset: str) -> str:
     return f"{base}_{k:03d}"
 
 
+def overlapping(scene: Scene, obj: SceneObject) -> list[str]:
+    """Other dynamic objects whose world bounding box intersects ``obj``'s (likely interpenetration)."""
+    lo, hi = obj.world_aabb()
+    out = []
+    for other in scene.dynamic_objects:
+        if other.name == obj.name:
+            continue
+        olo, ohi = other.world_aabb()
+        if np.all(lo < ohi) and np.all(olo < hi):
+            out.append(other.name)
+    return out
+
+
 def add_object(scene_path: str | Path, asset: str, *, at: tuple[float, float] | None = None,
                yaw_deg: float | None = None, name: str | None = None, tags: list[str] | None = None,
                drop: float = 0.001, rng: np.random.Generator | None = None,
-               physics: PhysicsConfig | None = None) -> str:
+               physics: PhysicsConfig | None = None, log=print) -> str:
     """Add a library asset to a scene file, standing on the support surface. Returns the object name."""
     from scene_physics.scene.usd_io import read_scene
 
@@ -164,6 +177,10 @@ def add_object(scene_path: str | Path, asset: str, *, at: tuple[float, float] | 
                       material=looks.look_for(info["asset"]), tags=list(tags or []))
     if tags and any(t in ("observed", "hidden") for t in tags):
         raise ValueError("roles are measured; use --tag for annotations like target / occluder")
+    hits = overlapping(scene, obj)
+    if hits:
+        log(f"[sp] warning: {obj_name} overlaps the bounding box of {', '.join(hits)}; "
+            "sp check will show whether they interpenetrate")
     stage = Usd.Stage.Open(str(scene_path))
     usd_io.author_object(stage, obj, physics or PhysicsConfig())
     stage.GetRootLayer().Save()
