@@ -74,3 +74,26 @@ def test_sp_roles_fixes_swapped_legacy_roles(tmp_path):
     assert fixed["block"].role == "hidden" and fixed["mug"].role == "observed"
     assert fixed.target.name == "block" and "target" not in fixed["mug"].tags
     assert len(fixed["block"].prior.means) == 2  # regenerated: one candidate behind each observed object
+
+
+def test_import_brings_a_finished_scene_back_for_editing(tmp_path):
+    import pytest
+
+    from scene_physics import cli
+    from scene_physics.scene import load_scene, save_scene
+
+    s = scene()
+    analysis.assign_roles(s, analysis.measure_visibility(s, device="cpu"), AuthoringConfig())
+    priors.assign_priors(s, AuthoringConfig())
+    s.assign_segmentation_ids()
+    s.metadata["status"] = "finalized"
+    done = tmp_path / "data" / "exp" / "t" / "scene.usd"
+    save_scene(s, done)
+    out = tmp_path / "authoring" / "t.usd"
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["import", str(done.parent), "--out", str(out)])
+    assert exc.value.code == 0
+    back = load_scene(out)
+    assert back.metadata["status"] == "authoring" and back.name == "t"
+    assert back.target.name == "block" and back["block"].prior is not None
+    assert np.allclose(back["mug"].pose, s["mug"].pose)
