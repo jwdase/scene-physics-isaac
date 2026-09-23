@@ -31,6 +31,7 @@ from scene_physics import geometry
 from scene_physics.camera import CameraSpec
 from scene_physics.config import PhysicsConfig
 from scene_physics.scene import looks
+from scene_physics.scene import looks as _looks
 from scene_physics.scene import schema as S
 from scene_physics.scene.model import Mesh, Prior, Scene, SceneObject, Visibility, safe_prim_name
 
@@ -637,18 +638,22 @@ def new_stage(path: str | Path | None = None) -> Usd.Stage:
     return stage
 
 
-def author_object(stage: Usd.Stage, obj: SceneObject, physics: PhysicsConfig) -> Usd.Prim:
+def author_object(stage: Usd.Stage, obj: SceneObject, physics: PhysicsConfig, *, parent: str = S.OBJECTS,
+                  looks: bool = True, metadata: bool = True) -> Usd.Prim:
+    """Author one object (pose, mesh, physics; optionally its material and ``sp:*`` metadata)."""
     name = safe_prim_name(obj.name)
-    path = f"{S.OBJECTS}/{name}"
+    path = f"{parent}/{name}"
     xf = UsdGeom.Xform.Define(stage, path)
     prim = xf.GetPrim()
     set_pose(prim, obj.pose)
     mesh = author_mesh(stage, f"{path}/{S.MESH_NAME}", obj.mesh, obj.color)
-    look = obj.material or looks.look_for(obj.asset)
-    mat = author_preview_material(stage, path, look, obj.color)
-    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(mat)
+    if looks:
+        look = obj.material or _looks.look_for(obj.asset)
+        mat = author_preview_material(stage, path, look, obj.color)
+        UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(mat)
     author_object_physics(prim, obj.dynamic, physics, obj.mass)
-    author_object_metadata(prim, obj)
+    if metadata:
+        author_object_metadata(prim, obj)
     return prim
 
 
