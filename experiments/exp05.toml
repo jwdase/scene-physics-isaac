@@ -1,0 +1,14 @@
+# Ported from data-pipeline/config/exp05.json
+experiment = "exp05"
+description = "Semantic block-relationship dataset: 50 review-curated scenes built almost entirely from wood blocks. A flat hidden block sits >=90% occluded behind a standing block (or short occluder); a probe block hangs cantilevered past its edge / rests on it / leans against it, and a duplicate of the probe block stands un-occluded at the same depth as a scale reference. Camera identical to exp03/exp04 (Scene-Physics default: 45 deg elevation front, 60 deg FOV)."
+
+[camera]
+name = "scene_physics_default"
+width = 640
+height = 480
+fov_degree = 60
+max_depth = 4.0
+eye = [0.0, -1.5, 1.5]
+target = [0.0, 0.0, 0.0]
+up = [0.0, 0.0, 1.0]
+# orbit: desc=elevated front (45 deg), azimuth_deg=0, elevation_deg=45, distance_m=2.12

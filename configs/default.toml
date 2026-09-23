@@ -1,0 +1,66 @@
+# Defaults for every config section. Experiment files (experiments/<exp>.toml) and run files only list
+# what they change. See src/scene_physics/config.py for what each key means.
+
+[physics]
+# PhysX, GPU pipeline. The same settings are used when authoring (sp check / sp finalize) and in
+# inference rollouts, so a scene that is at rest when authored is at rest for the model.
+dt = 0.008333333333333333          # 120 Hz
+gravity = 9.81
+solver = "TGS"
+device = "cuda:0"
+enhanced_determinism = true
+stabilization = true
+disable_sleeping = true
+static_friction = 0.8
+dynamic_friction = 0.8
+restitution = 0.0
+density = 1000.0
+max_depenetration_velocity = 1.0
+position_iterations = 16
+velocity_iterations = 4
+angular_damping = 0.1
+dynamic_approximation = "convexDecomposition"
+static_approximation = "none"
+max_convex_hulls = 32
+hull_vertex_limit = 64
+
+[settle]
+max_seconds = 5.0
+stability_seconds = 2.0
+moved_threshold_m = 0.005
+moved_threshold_deg = 2.0
+
+[render]
+mode = "pathtracing"
+samples = 128
+preview_samples = 32
+scale = 2.0
+
+[authoring]
+hidden_threshold = 0.1
+prior_rule = "observed_objects"
+prior_pos_std = 0.1
+prior_rot_std = 0.1
+prior_z = "truth"
+prior_orientation = "truth"
+
+[likelihood]
+variance = 0.001
+outlier_prob = 0.001
+outlier_volume = 1.0
+filter_size = 3
+rollout_seconds = 2.5
+combine = "rank"
+lambda_visual = 1.0
+lambda_displacement = 1.0
+lambda_rotation = 1.0
+lambda_penetration = 0.0
+
+[sampler]
+num_worlds = 15
+iterations = 50
+seed = 42
+proposer = "xy"
+schedule = "exp_decay"
+num_halvings = 2.0
+sample_roles = ["hidden"]

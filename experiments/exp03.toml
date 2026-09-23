@@ -1,0 +1,14 @@
+# Ported from data-pipeline/config/exp03.json
+experiment = "exp03"
+description = "Two-occluder human physical-reasoning dataset: 25 coupled + 25 control scenes, hidden target behind one of two plausible occluders; coupled scenes add a probe resting on the hidden target. Camera is the Scene-Physics default view (45 deg elevation front, 60 deg FOV) that the occlusion/visibility gates were tuned against."
+
+[camera]
+name = "scene_physics_default"
+width = 640
+height = 480
+fov_degree = 60
+max_depth = 4.0
+eye = [0.0, -1.5, 1.5]
+target = [0.0, 0.0, 0.0]
+up = [0.0, 0.0, 1.0]
+# orbit: desc=elevated front (45 deg), azimuth_deg=0, elevation_deg=45, distance_m=2.12

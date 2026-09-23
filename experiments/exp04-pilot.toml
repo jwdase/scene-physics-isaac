@@ -1,0 +1,13 @@
+# Ported from data-pipeline/config/exp04/pilot.json
+experiment = "exp04/pilot"
+description = "exp04 pilot scenes, rendered and evaluated from exp01's camera p01_f03 (eye-level front, 34 deg FOV) — the same view used for exp01/exp02/exp03."
+
+[camera]
+name = "p01_f03"
+width = 640
+height = 480
+fov_degree = 34
+eye = [0.0, -1.6628509212474696, 1.1534498743901909]
+target = [0.0, 0.0, 0.8]
+up = [0.0, 0.0, 1.0]
+# orbit: index=1, desc=eye-level front, azimuth_deg=0, elevation_deg=12, distance_m=1.7
