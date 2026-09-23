@@ -73,6 +73,19 @@ class StimulusRenderer:
     def capture(self, quality: str = "final", samples: int | None = None) -> Frame:
         """``quality``: ``final`` (path traced, ``cfg.samples``), ``preview`` (path traced, fewer
         samples) or ``fast`` (real-time ray tracing, for animations)."""
+        # delta_time=0: the timeline must not advance while we capture, otherwise Replicator's
+        # capture-on-play would step (or even initialise) physics behind our back.
+        if not self._warm:
+            # A path-traced frame requested before any ray-traced frame comes back black (measured on Isaac
+            # Sim 6.1), and the first frames stay empty while shaders compile and textures stream: warm up
+            # in ray-tracing mode until the annotator delivers a lit image.
+            set_render_mode("raytracing", 1)
+            for _ in range(12):
+                rep.orchestrator.step(rt_subframes=4, delta_time=0.0)
+                data = np.asarray(self._rgb.get_data())
+                if data.size and data[..., :3].max() > 0:
+                    break
+            self._warm = True
         if quality == "fast":
             set_render_mode("raytracing", 1)
             subframes = 4
@@ -81,10 +94,7 @@ class StimulusRenderer:
             mode = self.cfg.mode if quality == "final" else "pathtracing"
             set_render_mode(mode, spp, self.cfg.denoise)
             subframes = max(1, int(np.ceil(spp / 64))) if mode == "pathtracing" else 8
-        if not self._warm:  # first frame compiles shaders and streams textures
-            rep.orchestrator.step(rt_subframes=4)
-            self._warm = True
-        rep.orchestrator.step(rt_subframes=subframes)
+        rep.orchestrator.step(rt_subframes=subframes, delta_time=0.0)
         rgb = np.asarray(self._rgb.get_data())[..., :3].copy()
         seg_data = self._seg.get_data()
         raw = np.asarray(seg_data["data"])

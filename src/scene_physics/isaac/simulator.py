@@ -185,12 +185,15 @@ class SceneSimulator:
         ang = geometry.rotation_angle(after[:, 3:], before[:, 3:]).max() / seconds
         return float(lin), float(ang)
 
-    def settle(self, cfg: SettleConfig, *, on_step=None, stability: bool = True) -> SettleReport:
+    def settle(self, cfg: SettleConfig, *, on_step=None, stability: bool = True, update_fabric: bool | None = None
+               ) -> SettleReport:
         """Simulate from the authored poses until everything is at rest (or ``cfg.max_seconds``).
 
         ``on_step(sim, steps_done)`` is called every ``cfg.check_every`` steps (used to record frames).
+        ``update_fabric`` mirrors physics into Fabric so renders see it (default: when ``on_step`` is set).
         """
         t0 = time.time()
+        fabric = (on_step is not None) if update_fabric is None else update_fabric
         self.reset()
         start = self.poses()
         steps, max_steps = 0, int(np.ceil(cfg.max_seconds / self.dt))
@@ -198,7 +201,7 @@ class SceneSimulator:
         at_rest = False
         previous = start
         while steps < max_steps:
-            self.step(cfg.check_every, update_fabric=on_step is not None)
+            self.step(cfg.check_every, update_fabric=fabric)
             steps += cfg.check_every
             if on_step is not None:
                 on_step(self, steps)
@@ -215,7 +218,7 @@ class SceneSimulator:
             done = 0
             while done < n:
                 k = min(cfg.check_every, n - done)
-                self.step(k, update_fabric=on_step is not None)
+                self.step(k, update_fabric=fabric)
                 done += k
                 if on_step is not None:
                     on_step(self, steps + done)
