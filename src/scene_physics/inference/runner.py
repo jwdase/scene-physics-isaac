@@ -70,6 +70,9 @@ def run_inference(scene_path: str | Path, config: Config, *, out_dir: str | Path
     log(f"scene {scene_path}")
     log(f"{n} worlds, {config.sampler.iterations} iterations, proposer {config.sampler.proposer}/{config.sampler.schedule}, "
         f"combine {config.likelihood.combine}, rollout {config.likelihood.rollout_seconds} s, device {config.physics.device}")
+    if n == 1:
+        log("warning: with one world the sampler only keeps its elite (world 0) and cannot explore; "
+            "this is a smoke test, use --num-worlds >= 2 for inference")
     t0 = time.perf_counter()
     worlds = ParallelWorlds(scene, n, config.physics)
     lik = SceneLikelihood(scene, physics=worlds, cfg=config.likelihood, num_worlds=n, body_names=worlds.names)
