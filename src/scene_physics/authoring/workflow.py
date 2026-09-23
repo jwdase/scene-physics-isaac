@@ -181,6 +181,9 @@ def check_scene(scene_path: str | Path, config: Config, *, gui: bool = False, gi
         lines.append("   finalize will store the settled poses as ground truth (use --no-settle to keep the authored ones)")
     else:
         lines.append("   the authored arrangement is stable under the model's physics")
+    for m in report.still_moving(config.settle):
+        lines.append(f"   warning: {m.name} was still moving after the settle ({m.residual * 1000:.0f} mm in "
+                     f"{config.settle.stability_seconds:g} s): it has no rest state here; fix its pose before finalizing")
     lines += ["", f"2) occlusion from camera {scene.camera.name} (hidden below {config.authoring.hidden_threshold:.0%} visible)",
               analysis.visibility_table(scene), ""]
     if decision.target:
@@ -305,7 +308,13 @@ def finalize_scene(scene_path: str | Path, config: Config, *, name: str | None =
         obj.settle_displacement, obj.settle_rotation_deg, obj.settle_residual = m.displacement, m.rotation_deg, m.residual
         if settle:
             obj.pose = settled[obj.name]
-    if not report.at_rest:
+    still = report.still_moving(config.settle)
+    if still and strict:
+        raise RuntimeError(f"objects are still moving after the settle: {', '.join(m.name for m in still)} (run sp check)")
+    for m in still:
+        _log(f"warning: {m.name} was still moving after the settle ({m.residual * 1000:.0f} mm in "
+             f"{config.settle.stability_seconds:g} s); its stored pose is not a rest state")
+    if not report.at_rest and not still:
         _log("warning: the scene did not come to rest within settle.max_seconds")
 
     # 2) visibility -> roles, target; priors; ids
@@ -396,7 +405,11 @@ def migrate_legacy(legacy_dir: str | Path, config: Config, *, name: str | None =
     write_scene(scene, out_path, config.physics)
     _log(f"migrated {legacy_dir} -> {out_path}")
     _log("physics (measured only, poses kept):\n" + report.table())
-    for w in decision.warnings + scene.metadata.get("import_warnings", []):
+    warnings = [f"{m.name} moves {m.displacement * 1000:.1f} mm / {m.rotation_deg:.1f} deg under the model's physics "
+                "(authored pose kept)" for m in report.moved(config.settle)]
+    warnings += [f"{m.name} was still moving after the settle ({m.residual * 1000:.0f} mm in "
+                 f"{config.settle.stability_seconds:g} s)" for m in report.still_moving(config.settle)]
+    for w in warnings + decision.warnings + scene.metadata.get("import_warnings", []):
         _log(f"warning: {w}")
     if render:
         render_scene(out_path, config, out_dir=out_dir / "render")

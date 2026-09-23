@@ -124,6 +124,10 @@ class SettleReport:
     def moved(self, cfg: SettleConfig) -> list[ObjectMotion]:
         return [m for m in self.motions if m.moved(cfg)]
 
+    def still_moving(self, cfg: SettleConfig) -> list[ObjectMotion]:
+        """Objects that kept moving during the stability window after the scene was called at rest."""
+        return [m for m in self.motions if m.residual > cfg.moved_threshold_m]
+
     def table(self) -> str:
         lines = [f"  {'object':44s} {'moved (mm)':>10s} {'rotated (deg)':>13s} {'residual (mm)':>13s}"]
         for m in self.motions:
@@ -200,6 +204,7 @@ class SceneSimulator:
         min_steps = int(np.ceil(cfg.min_seconds / self.dt))
         at_rest = False
         previous = start
+        quiet = 0
         while steps < max_steps:
             self.step(cfg.check_every, update_fabric=fabric)
             steps += cfg.check_every
@@ -208,7 +213,8 @@ class SceneSimulator:
             current = self.poses()
             lin, ang = self._speeds(previous, current, cfg.check_every * self.dt)
             previous = current
-            if steps >= min_steps and lin < cfg.rest_linear_velocity and ang < cfg.rest_angular_velocity:
+            quiet = quiet + 1 if (lin < cfg.rest_linear_velocity and ang < cfg.rest_angular_velocity) else 0
+            if steps >= min_steps and quiet >= max(1, cfg.rest_checks):
                 at_rest = True
                 break
         settled = self.poses()
@@ -223,6 +229,7 @@ class SceneSimulator:
                 if on_step is not None:
                     on_step(self, steps + done)
             residual = geometry.position_error(self.poses(), settled)
+            at_rest = at_rest and not bool((residual > cfg.moved_threshold_m).any())
         disp = geometry.position_error(settled, start)
         rot = np.degrees(geometry.rotation_angle(settled[:, 3:], start[:, 3:]))
         motions = [ObjectMotion(n, float(d), float(r), float(res)) for n, d, r, res in zip(self.names, disp, rot, residual)]

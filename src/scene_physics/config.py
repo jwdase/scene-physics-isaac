@@ -68,6 +68,7 @@ class SettleConfig:
     max_seconds: float = 5.0
     min_seconds: float = 0.5
     check_every: int = 12  # physics steps between rest checks
+    rest_checks: int = 3  # consecutive quiet checks needed to call the scene at rest (one can be a turning point)
     rest_linear_velocity: float = 0.005  # m/s
     rest_angular_velocity: float = 0.05  # rad/s
     stability_seconds: float = 2.0  # extra simulated time used to measure residual motion
