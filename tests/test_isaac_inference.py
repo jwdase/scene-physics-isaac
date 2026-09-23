@@ -66,7 +66,7 @@ def test_world_slot_does_not_matter(isaac, tmp_path):
     rng = np.random.default_rng(0)
     poses = np.repeat(worlds.truth[None], n, axis=0)
     b = worlds.body_index("block")
-    poses[:, b, :2] += rng.normal(0, 0.05, size=(n, 2))  # plausible, non-overlapping-ish hypotheses
+    poses[:, b, :2] += rng.normal(0, 0.02, size=(n, 2))  # stay clear of the occluder (13 cm away): non-chaotic
     a, _ = lik.evaluate(poses)
     perm = rng.permutation(n)
     c, _ = lik.evaluate(poses[perm])

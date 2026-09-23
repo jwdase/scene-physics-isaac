@@ -105,6 +105,21 @@ plots. Set `SCENE_PHYSICS_DATA` / `SCENE_PHYSICS_RESULTS` to put data or results
 Configuration: `configs/default.toml` (physics, settle, render, authoring, likelihood, sampler), per
 experiment `experiments/<exp>.toml`, and `--config extra.toml` for a run.
 
+### Setting up the server
+
+```bash
+git clone git@github.com:jwdase/scene-physics-isaac.git && cd scene-physics-isaac
+git checkout rewrite/isaac-sim
+uv sync                                   # installs the pinned Isaac Sim 6.1 environment (~25 GB)
+export OMNI_KIT_ACCEPT_EULA=YES
+rsync -a <workstation>:scene-physics-isaac/data/ data/      # or: export SCENE_PHYSICS_DATA=/scratch/...
+uv run pytest -m isaac && uv run pytest -m multiworld       # the simulator works, worlds are independent
+uv run sp infer data/data-set/scene0* --num-worlds 64       # one Isaac Sim session for all scenes
+```
+
+Per iteration the cost is one PhysX rollout (2.5 s of simulated time, 300 steps; about 0.7 s whatever N
+is) plus the ray-cast render and likelihood of all N worlds (about 1 ms per world on the workstation).
+
 ## Layout
 
 ```
