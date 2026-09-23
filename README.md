@@ -11,6 +11,8 @@ This repository merges the two earlier ones (**Scene-Physics**: the model on sta
 **data-pipeline**: scene data handling and Blender rendering) into one package, `scene_physics`, on
 **Isaac Sim 6.1 with PhysX**. See [`docs/DESIGN.md`](docs/DESIGN.md) for why PhysX, and
 [`docs/MIGRATION.md`](docs/MIGRATION.md) for how old commands, files and model behaviour map to the new ones.
+[`docs/LEGACY_AUDIT.md`](docs/LEGACY_AUDIT.md) lists what the new checks found in the migrated legacy
+scenes (objects that are not at rest, interpenetration, roles that disagree with the camera).
 
 ## Setup
 

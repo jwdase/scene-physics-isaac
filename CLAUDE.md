@@ -37,6 +37,9 @@ Guidance for Claude Code in this repository. Read `README.md` first (workflow an
 - `sp infer` / `sp lossmap` launch Kit with `rendering=False` (minimal renderer, no-rendering mode): the
   model never uses RTX. Anything that renders stimuli must launch with the default renderer.
 - PhysX is deterministic to ~1e-6 m (broadphase history); chaotic (interpenetrating) hypotheses diverge.
+- Scene files must round-trip bit-exactly (`tests/test_scene_io.py::test_read_write_is_bit_exact`):
+  convex decomposition depends on the last bits of the points, and an interpenetrating arrangement's
+  outcome changed from 47 mm to 152 mm when a re-import perturbed them.
 
 ## Conventions
 

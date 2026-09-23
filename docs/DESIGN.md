@@ -36,6 +36,10 @@ GPU.
   convex-decomposition colliders comes to rest within 0.5 s of simulated time: the loaf settles 3.9 mm
   and tilts 4 degrees, every other object moves under 0.5 mm, and a further 2 s moves nothing (< 0.06 mm).
   240 steps take 0.7 s. All 52 legacy `data-set` scenes were run through the same check (see `sp migrate`).
+* The legacy objects that move under PhysX move the same way with convex-hull, convex-decomposition
+  and SDF colliders (e.g. a bee figurine tips 68–69° under all three), so the motion comes from the
+  authored poses, not the collider approximation; see `docs/LEGACY_AUDIT.md`. Decomposition is also
+  the fastest of the three to settle.
 * Two cloned worlds: repeated rollouts from the same input agree to ~2 micrometres (bit-identical when
   the preceding history is the same), and changing everything in world 1 moves world 0's result by at
   most ~2 micrometres, often exactly 0 (co-located env-ID worlds and spaced grid worlds behave the same).
