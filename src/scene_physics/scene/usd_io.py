@@ -410,6 +410,11 @@ def author_physics_scene(stage: Usd.Stage, physics: PhysicsConfig) -> Usd.Prim:
     set_physx_attr(prim, "physxScene:enableStabilization", bool(physics.stabilization))
     set_physx_attr(prim, "physxScene:enableCCD", bool(physics.ccd))
     set_physx_attr(prim, "physxScene:disableSleeping", bool(physics.disable_sleeping))
+    if gpu:
+        set_physx_attr(prim, "physxScene:gpuMaxRigidContactCount", int(physics.gpu_max_rigid_contact_count))
+        set_physx_attr(prim, "physxScene:gpuMaxRigidPatchCount", int(physics.gpu_max_rigid_patch_count))
+        set_physx_attr(prim, "physxScene:gpuFoundLostPairsCapacity", int(physics.gpu_found_lost_pairs_capacity))
+        set_physx_attr(prim, "physxScene:gpuTotalAggregatePairsCapacity", int(physics.gpu_total_aggregate_pairs_capacity))
     return prim
 
 

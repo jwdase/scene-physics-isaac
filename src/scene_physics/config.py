@@ -54,6 +54,13 @@ class PhysicsConfig:
     rest_offset: float | None = None
     # ground plane below everything (objects that fall off the table land on it)
     ground_plane: bool = True
+    # PhysX GPU buffer capacities. Overflowing them silently drops contacts (objects sink through each
+    # other), and convex-decomposed objects create many contact patches, so these are raised from the
+    # PhysX defaults (524288 / 81920 / 262144). Raise further for thousands of worlds.
+    gpu_max_rigid_contact_count: int = 2**21
+    gpu_max_rigid_patch_count: int = 2**19
+    gpu_found_lost_pairs_capacity: int = 2**21
+    gpu_total_aggregate_pairs_capacity: int = 2**21
 
 
 @dataclass
