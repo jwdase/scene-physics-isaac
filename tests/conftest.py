@@ -7,14 +7,16 @@ and importing both in one process crashes. So when the ``isaac`` marker is selec
 """
 
 import os
+import re
 import sys
 
 import pytest
 
 
 def _wants_isaac(config) -> bool:
-    expr = (config.option.markexpr or "").replace("not isaac", "")
-    return "isaac" in expr or "multiworld" in expr
+    """True when the marker expression selects ``isaac`` or ``multiworld`` tests (not merely excludes)."""
+    expr = config.option.markexpr or ""
+    return re.search(r"(?<!not )\b(isaac|multiworld)\b", expr) is not None
 
 
 def pytest_configure(config):
