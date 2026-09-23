@@ -17,6 +17,8 @@ dependencies = [
     "pillow",
     "matplotlib",
     "trimesh",
+    # isaacsim-robot needs an onnxruntime; the environment ships the GPU build (see the override below).
+    "onnxruntime-gpu",
 ]
 
 [project.scripts]
