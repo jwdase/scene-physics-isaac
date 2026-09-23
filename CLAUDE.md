@@ -32,7 +32,10 @@ Guidance for Claude Code in this repository. Read `README.md` first (workflow an
   them back to USD explicitly (`SceneSimulator.write_poses_to_usd`).
 - A file Kit has opened stays in the layer registry; do not rewrite it in the same process (simulate a
   temporary copy, as `migrate_legacy` does).
-- PhysX reports small velocities for bodies at rest; rest detection uses pose change.
+- PhysX reports small velocities for bodies at rest; rest detection uses pose change over
+  `settle.rest_checks` consecutive windows (a single quiet window can be a turning point).
+- `sp infer` / `sp lossmap` launch Kit with `rendering=False` (minimal renderer, no-rendering mode): the
+  model never uses RTX. Anything that renders stimuli must launch with the default renderer.
 - PhysX is deterministic to ~1e-6 m (broadphase history); chaotic (interpenetrating) hypotheses diverge.
 
 ## Conventions

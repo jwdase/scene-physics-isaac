@@ -42,12 +42,15 @@ def launch(
     height: int = 720,
     extra_args: list[str] | None = None,
     samples_per_pixel: int = 64,
+    rendering: bool = True,
 ):
     """Start Isaac Sim once per process and return the ``SimulationApp``.
 
     ``renderer``: ``RaytracedLighting`` (fast), ``PathTracing`` (stimulus quality) or
     ``RealTimePathTracing``. ``experience``: a ``.kit`` file name, e.g. ``isaacsim.exp.full.kit`` for
-    the full editor UI.
+    the full editor UI. ``rendering=False`` turns RTX off (minimal renderer in its no-rendering mode,
+    viewport updates disabled): the model renders with its own Warp ray caster, so inference only
+    needs PhysX, which also suits server GPUs without RT cores.
     """
     global _APP
     if _APP is not None:
@@ -72,6 +75,8 @@ def launch(
         "samples_per_pixel_per_frame": samples_per_pixel,
         "extra_args": args,
     }
+    if not rendering:
+        config.update({"renderer": "MinimalRendering", "minimal_shading_mode": 4, "disable_viewport_updates": headless})
     # Kit parses sys.argv as its own command line; hide ours (CLI / pytest flags) while it starts.
     argv, sys.argv = sys.argv, sys.argv[:1]
     try:

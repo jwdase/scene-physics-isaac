@@ -387,7 +387,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--out", help="results directory (default results/<exp>/<scene>/<timestamp>)")
     s.add_argument("--tag", help="name for this run (appended to the results directory)")
     common(s)
-    s.set_defaults(func=cmd_infer, needs_kit=True)
+    s.set_defaults(func=cmd_infer, needs_kit=True, rtx=False)  # PhysX + Warp only
 
     s = sub.add_parser("lossmap", help="brute-force likelihood channels over the hidden object's XY prior box")
     s.add_argument("scene")
@@ -395,7 +395,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--num-worlds", "-N", type=int)
     s.add_argument("--out")
     common(s)
-    s.set_defaults(func=cmd_lossmap, needs_kit=True)
+    s.set_defaults(func=cmd_lossmap, needs_kit=True, rtx=False)  # PhysX + Warp only
     return p
 
 
@@ -408,7 +408,7 @@ def main(argv: list[str] | None = None) -> None:
             # and must load them first. (`sp open` boots the full editor experience itself.)
             from scene_physics.isaac import app
 
-            app.launch(headless=not getattr(args, "gui", False))
+            app.launch(headless=not getattr(args, "gui", False), rendering=getattr(args, "rtx", True))
         args.func(args)
     except (FileNotFoundError, FileExistsError, KeyError, ValueError) as exc:
         print(f"[sp] error: {exc}", file=sys.stderr, flush=True)

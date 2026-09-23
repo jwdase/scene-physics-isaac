@@ -118,6 +118,10 @@ uv run pytest -m isaac && uv run pytest -m multiworld       # the simulator work
 uv run sp infer data/data-set/scene0* --num-worlds 64       # one Isaac Sim session for all scenes
 ```
 
+`sp infer` and `sp lossmap` start Isaac Sim with RTX rendering switched off (the model sees the scene
+through its own Warp ray caster), so they only need CUDA and PhysX; the stimulus renders (`sp finalize`,
+`sp render`) need an RTX GPU and are best made on the workstation.
+
 Per iteration the cost is one PhysX rollout (2.5 s of simulated time, 300 steps; about 0.7 s whatever N
 is) plus the ray-cast render and likelihood of all N worlds (about 1 ms per world on the workstation).
 
