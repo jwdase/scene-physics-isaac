@@ -253,6 +253,7 @@ def render_scene(scene_path: str | Path, config: Config, *, out_dir: str | Path 
     labels = scene.segmentation_labels()
     images.save_png(out_dir / "rgb.png", frame.rgb)
     images.write_segmentation(out_dir / "segmentation.png", frame.segmentation, labels)
+    images.write_depth(out_dir / "depth.png", frame.depth)
     vis = analysis.measure_visibility(scene)
     hidden = scene.with_role("hidden")
     outlines = [(vis.amodal[o.name], (255, 40, 40)) for o in hidden if o.name in vis.amodal]

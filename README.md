@@ -58,6 +58,7 @@ data/data-set/scene053/
   render/segmentation.png   object ids (0 = background), id map embedded in the PNG
   render/overlay.png   QA view
   render/target.png    the target's full silhouette in its colour
+  render/depth.png     depth to the image plane, 16-bit millimetres (for RGB-D models)
 ```
 
 Other commands: `sp info <scene> [--priors] [--json out.json]`, `sp validate`, `sp list [exp]`,

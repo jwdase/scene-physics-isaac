@@ -85,3 +85,12 @@ def test_scene_visibility_counts():
     assert vis["front"]["fraction"] == pytest.approx(1.0)
     assert 0.0 < vis["back"]["fraction"] < 1.0
     assert vis["back"]["silhouette"] > vis["back"]["visible"]
+
+
+def test_depth_png_roundtrip(tmp_path):
+    from scene_physics.render import images
+
+    d = np.array([[1.2346, np.inf], [np.nan, 0.5]])
+    back = images.read_depth(images.write_depth(tmp_path / "d.png", d))
+    assert back[0, 0] == pytest.approx(1.235) and back[1, 1] == pytest.approx(0.5)
+    assert np.isnan(back[0, 1]) and np.isnan(back[1, 0])

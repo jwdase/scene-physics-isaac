@@ -26,6 +26,7 @@
 | `results/segmentation.png`, `segmentation_labels.json` | `render/segmentation.png` (the `{name: id}` map is embedded in the PNG and in `sp:segmentationId`) |
 | `results/segmentation_overlay.png` | `render/overlay.png` (hidden objects outlined) |
 | `results/target.png`, `target.json` | `render/target.png`; the per-object numbers from `target.json` are `sp:visibility:*` |
+| `results/preview_depth.png` (some scenes) | `render/depth.png` for every scene: 16-bit millimetres to the image plane |
 | `config/<exp>.json` | `experiments/<exp>.toml` (same camera values) |
 | inference outputs next to the scene (`results/sampling.txt`, `*_positions.npy`, `final_world.usdc`, plots) | `results/<exp>/<scene>/<timestamp>/` (`sampling.txt`, `trace.npz`, `reconstruction.usd`, `summary.json`, plots) |
 

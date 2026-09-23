@@ -99,6 +99,19 @@ def save_png(path: str | Path, img: np.ndarray) -> Path:
     return path
 
 
+def write_depth(path: str | Path, depth_m: np.ndarray) -> Path:
+    """Depth to the image plane as a 16-bit PNG in millimetres (0 = nothing hit), the usual RGB-D format."""
+    d = np.asarray(depth_m, dtype=np.float64)
+    mm = np.where(np.isfinite(d) & (d > 0), np.round(d * 1000.0), 0).clip(0, 65535).astype(np.uint16)
+    return save_png(path, mm)
+
+
+def read_depth(path: str | Path) -> np.ndarray:
+    """Metres (NaN where nothing was hit)."""
+    mm = np.asarray(Image.open(path)).astype(np.float64)
+    return np.where(mm > 0, mm / 1000.0, np.nan)
+
+
 def save_gif(path: str | Path, frames: list[np.ndarray], fps: int = 30) -> Path:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
