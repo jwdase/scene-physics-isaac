@@ -1,4 +1,4 @@
-"""Scene analysis that needs no simulator: visibility, roles, target choice, validation.
+"""Scene analysis that needs no simulator: visibility, roles, target choice, overlaps, validation.
 
 Visibility uses the Warp ray caster at the camera's model resolution, i.e. exactly the view the model
 gets (no anti-aliasing, no lighting), so "hidden" means hidden to the model.
@@ -112,6 +112,61 @@ def assign_roles(scene: Scene, report: VisibilityReport, cfg: AuthoringConfig, *
     if not scene.with_role("hidden"):
         out.warnings.append("no object is hidden from the camera")
     return out
+
+
+@dataclass
+class Overlap:
+    a: str
+    b: str
+    volume: float  # cubic metres of the smaller object inside the other (sampled)
+    fraction: float  # that volume as a fraction of the smaller object's volume
+
+
+def overlaps(scene: Scene, *, samples: int = 1024, min_fraction: float = 0.01, min_volume: float = 1e-6,
+             seed: int = 0, device: str | None = None) -> list[Overlap]:
+    """Pairs of objects that interpenetrate at their current poses (dynamic-dynamic and dynamic-static).
+
+    Points are spread through each dynamic object's interior and tested against the other objects
+    with winding numbers; a pair is reported when at least ``min_fraction`` of either object's
+    volume (and at least ``min_volume`` m^3) lies inside the other. PhysX pushes such pairs apart, so
+    an authored overlap turns into motion at the first physics step.
+    """
+    import warp as wp
+
+    from scene_physics import geometry
+    from scene_physics.likelihood.physics_terms import _inside_mesh, _interior_points, _wp_mesh
+
+    device = device or ("cuda:0" if wp.is_cuda_available() else "cpu")
+    rng = np.random.default_rng(seed)
+    objs = list(scene)
+    meshes = {o.name: _wp_mesh(o.mesh, device) for o in objs}
+    inside: dict[tuple[str, str], tuple[float, float]] = {}  # (a, b) -> (fraction of a inside b, volume)
+    for a in scene.dynamic_objects:
+        pts, vol = _interior_points(a.mesh, samples, rng, device)
+        world = geometry.transform_points(a.pose, pts)
+        for b in objs:
+            if b.name == a.name:
+                continue
+            local = geometry.transform_points(geometry.inverse(b.pose), world).astype(np.float32)
+            frac = float(_inside_mesh(meshes[b.name], local, device).mean())
+            if frac > 0:
+                inside[(a.name, b.name)] = (frac, frac * vol)
+    out, seen = [], set()
+    for (a, b), (frac, vol) in inside.items():
+        key = tuple(sorted((a, b)))
+        if key in seen:
+            continue
+        seen.add(key)
+        other = inside.get((b, a), (0.0, 0.0))
+        frac, vol = max((frac, vol), other)
+        if frac >= min_fraction and vol >= min_volume:
+            out.append(Overlap(a, b, vol, frac))
+    return sorted(out, key=lambda o: -o.volume)
+
+
+def overlap_lines(found: list[Overlap]) -> list[str]:
+    return [f"{o.a} and {o.b} interpenetrate: {o.volume * 1e6:.1f} cm^3 ({o.fraction:.0%} of one of them)"
+            for o in found]
 
 
 def visibility_table(scene: Scene) -> str:

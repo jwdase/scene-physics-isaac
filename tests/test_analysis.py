@@ -1,6 +1,7 @@
 """Visibility -> roles -> target, and validation (ray caster on CPU)."""
 
 import numpy as np
+import pytest
 import warp as wp
 
 from scene_physics.authoring import analysis
@@ -97,3 +98,13 @@ def test_import_brings_a_finished_scene_back_for_editing(tmp_path):
     assert back.metadata["status"] == "authoring" and back.name == "t"
     assert back.target.name == "block" and back["block"].prior is not None
     assert np.allclose(back["mug"].pose, s["mug"].pose)
+
+
+def test_overlaps_finds_interpenetrating_pairs():
+    s = scene()
+    assert analysis.overlaps(s, device="cpu") == []
+    s["mug"].pose = np.array([0.0, 0.3, 1.02, 0, 0, 0, 1])  # 10 cm cubes, 2 cm apart: 80% overlap
+    found = analysis.overlaps(s, device="cpu")
+    assert [(o.a, o.b) for o in found] in ([("mug", "block")], [("block", "mug")])
+    assert found[0].fraction == pytest.approx(0.8, abs=0.05)
+    assert found[0].volume == pytest.approx(0.8e-3, rel=0.1)

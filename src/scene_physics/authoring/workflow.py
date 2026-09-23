@@ -132,6 +132,7 @@ def check_scene(scene_path: str | Path, config: Config, *, gui: bool = False, gi
     out_dir.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
 
+    overlapping = analysis.overlaps(scene)  # at the authored poses
     stage, renderer = _render_setup(scene_path, scene, config, scale=1.0)
     stray = analysis.stray_bodies(stage)
     if gui:
@@ -191,6 +192,9 @@ def check_scene(scene_path: str | Path, config: Config, *, gui: bool = False, gi
         lines.append("   finalize will store the settled poses as ground truth (use --no-settle to keep the authored ones)")
     else:
         lines.append("   the authored arrangement is stable under the model's physics")
+    if overlapping:
+        lines.append("   overlapping at the authored poses (PhysX pushes these apart):")
+        lines += [f"     {line}" for line in analysis.overlap_lines(overlapping)]
     for m in report.still_moving(config.settle):
         lines.append(f"   warning: {m.name} was still moving after the settle ({m.residual * 1000:.0f} mm in "
                      f"{config.settle.stability_seconds:g} s): it has no rest state here; fix its pose before finalizing")
@@ -419,6 +423,7 @@ def migrate_legacy(legacy_dir: str | Path, config: Config, *, name: str | None =
                 "(authored pose kept)" for m in report.moved(config.settle)]
     warnings += [f"{m.name} was still moving after the settle ({m.residual * 1000:.0f} mm in "
                  f"{config.settle.stability_seconds:g} s)" for m in report.still_moving(config.settle)]
+    warnings += analysis.overlap_lines(analysis.overlaps(scene))
     for w in warnings + decision.warnings + scene.metadata.get("import_warnings", []):
         _log(f"warning: {w}")
     if render:

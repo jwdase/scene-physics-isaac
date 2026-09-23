@@ -30,9 +30,14 @@ def quat_wxyz_to_xyzw(q: np.ndarray) -> np.ndarray:
 
 
 def canonical_quat(q: np.ndarray) -> np.ndarray:
-    """Flip quaternions (xyzw) into the ``qw >= 0`` hemisphere and normalise them."""
+    """Flip quaternions (xyzw) into the ``qw >= 0`` hemisphere and normalise them.
+
+    Quaternions already unit to float32 precision are left as they are, so values read from a file
+    (stored as float32) are written back bit-identically.
+    """
     q = np.asarray(q, dtype=float)
-    q = q / np.linalg.norm(q, axis=-1, keepdims=True)
+    norm = np.linalg.norm(q, axis=-1, keepdims=True)
+    q = np.where(np.abs(norm - 1.0) > 1e-6, q / norm, q)
     return np.where(q[..., 3:4] < 0.0, -q, q)
 
 

@@ -64,6 +64,35 @@ def test_write_read_roundtrip(tmp_path):
     assert back.target.name == "square_wood_block_013"
 
 
+def test_read_write_is_bit_exact(tmp_path):
+    """Re-reading and re-writing a scene must not touch the last bits of points or poses: convex
+    decomposition (and so an interpenetrating configuration's outcome) depends on them."""
+    scene = toy_scene()
+    rng = np.random.default_rng(3)
+    for o in scene:  # awkward values: random rotations and sub-micrometre points
+        o.mesh = Mesh(o.mesh.points + rng.normal(0, 1e-3, o.mesh.points.shape), o.mesh.triangles)
+        q = rng.normal(size=4)
+        o.pose = np.concatenate([o.pose[:3] + rng.normal(0, 1e-3, 3), q / np.linalg.norm(q)])
+    first = usd_io.write_scene(scene, tmp_path / "a.usd")
+    second = usd_io.write_scene(load_scene(first), tmp_path / "b.usd")
+
+    def raw(path):
+        stage = Usd.Stage.Open(str(path))
+        out = {}
+        for prim in usd_io.object_prims(stage):
+            ops = [np.asarray(op.Get(), dtype=np.float64) if not hasattr(op.Get(), "GetReal")
+                   else np.array([op.Get().GetReal(), *op.Get().GetImaginary()]) for op in
+                   usd_io.UsdGeom.Xformable(prim).GetOrderedXformOps()]
+            pts = np.asarray(usd_io.UsdGeom.Mesh(prim.GetChild(S.MESH_NAME)).GetPointsAttr().Get())
+            out[prim.GetName()] = (ops, pts)
+        return out
+
+    a, b = raw(first), raw(second)
+    for name in a:
+        assert all(np.array_equal(x, y) for x, y in zip(a[name][0], b[name][0])), name
+        assert np.array_equal(a[name][1], b[name][1]), name
+
+
 def test_physics_schemas_are_authored(tmp_path):
     path = usd_io.write_scene(toy_scene(), tmp_path / "scene.usd", PhysicsConfig())
     stage = Usd.Stage.Open(str(path))

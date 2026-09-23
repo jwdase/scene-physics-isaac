@@ -105,7 +105,7 @@ def read_asset(asset: str) -> tuple[Mesh, dict]:
     stage = Usd.Stage.Open(str(path))
     root = stage.GetDefaultPrim()
     cache = UsdGeom.XformCache(Usd.TimeCode.Default())
-    mesh = usd_io.read_object_mesh(root, np.eye(4), cache)
+    mesh = usd_io.read_object_mesh(root, cache)
     color = usd_io.get_attr(root, S.COLOR)
     info = {
         "asset": usd_io.get_attr(root, S.ASSET, asset),

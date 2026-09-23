@@ -116,12 +116,13 @@ def set_pose(prim: Usd.Prim, pose: np.ndarray) -> None:
     """Make ``prim``'s world pose equal ``pose`` using ``translate`` + ``orient`` (+ existing scale).
 
     Any other xform-op stack (e.g. Blender's ``rotateXYZ``) is replaced; an authored scale is kept.
+    The orientation is stored in the ``qw >= 0`` hemisphere, as it is read back.
     """
-    pose = np.asarray(pose, dtype=float)
+    pose = geometry.canonical_pose(np.asarray(pose, dtype=float))
     parent_world = world_matrix(prim.GetParent())
     if not np.allclose(parent_world, np.eye(4)):
         local = np.linalg.inv(parent_world) @ geometry.pose_to_matrix(pose)
-        pose = geometry.matrix_to_pose(local)
+        pose = geometry.canonical_pose(geometry.matrix_to_pose(local))
     xf = UsdGeom.Xformable(prim)
     ops = xf.GetOrderedXformOps()
     names = [op.GetOpName() for op in ops]
@@ -183,9 +184,14 @@ def object_prims(stage: Usd.Stage) -> list[Usd.Prim]:
     return [p for p in root.GetChildren() if p.IsA(UsdGeom.Xformable)]
 
 
-def read_object_mesh(prim: Usd.Prim, obj_world: np.ndarray, cache: UsdGeom.XformCache) -> Mesh:
-    """Merge every Mesh under ``prim`` into one mesh in the object's (unscaled) body frame."""
-    inv = np.linalg.inv(obj_world)
+def read_object_mesh(prim: Usd.Prim, cache: UsdGeom.XformCache, scale=(1.0, 1.0, 1.0)) -> Mesh:
+    """Merge every Mesh under ``prim`` into one mesh in the object's (unscaled) body frame.
+
+    ``scale`` is the object prim's own scale, baked into the points. Points of a mesh that sits
+    directly in the body frame (the layout this package writes) are used exactly as stored, so a
+    scene read and written again keeps bit-identical geometry (convex decomposition is sensitive
+    to the last bits of the points).
+    """
     parts = []
     for p in Usd.PrimRange(prim):
         if not p.IsA(UsdGeom.Mesh):
@@ -198,8 +204,10 @@ def read_object_mesh(prim: Usd.Prim, obj_world: np.ndarray, cache: UsdGeom.Xform
         indices = m.GetFaceVertexIndicesAttr().Get()
         if pts.size == 0 or counts is None:
             continue
-        rel = inv @ world_matrix(p, cache)
-        pts = pts @ rel[:3, :3].T + rel[:3, 3]
+        rel_local, _ = cache.ComputeRelativeTransform(p, prim)
+        rel = np.diag([*np.asarray(scale, dtype=float), 1.0]) @ gf_to_matrix(rel_local)
+        if not np.array_equal(rel, np.eye(4)):
+            pts = pts @ rel[:3, :3].T + rel[:3, 3]
         parts.append(Mesh.from_polygons(pts, counts, indices))
     if not parts:
         raise ValueError(f"{prim.GetPath()}: no mesh geometry under the object")
@@ -247,11 +255,31 @@ def _python_value(v):
     return v
 
 
+def _op_pose(prim: Usd.Prim, cache: UsdGeom.XformCache) -> tuple[np.ndarray, np.ndarray] | None:
+    """(pose, scale) read straight from a ``translate, orient[, scale]`` op stack under an
+    untransformed parent, so values round-trip exactly; None for any other layout."""
+    if not np.array_equal(world_matrix(prim.GetParent(), cache), np.eye(4)):
+        return None
+    xf = UsdGeom.Xformable(prim)
+    if xf.GetResetXformStack():
+        return None
+    ops = xf.GetOrderedXformOps()
+    names = [op.GetOpName() for op in ops]
+    if names[:2] != ["xformOp:translate", "xformOp:orient"] or names[2:] not in ([], ["xformOp:scale"]):
+        return None
+    t, q = ops[0].Get(), ops[1].Get()
+    if t is None or q is None:
+        return None
+    im = q.GetImaginary()
+    pose = np.array([t[0], t[1], t[2], im[0], im[1], im[2], q.GetReal()], dtype=float)
+    scale = np.asarray(ops[2].Get(), dtype=float) if len(ops) == 3 and ops[2].Get() is not None else np.ones(3)
+    return pose, scale
+
+
 def read_object(prim: Usd.Prim, cache: UsdGeom.XformCache) -> SceneObject:
-    m = world_matrix(prim, cache)
-    pose, scale = decompose(m)
-    unscaled = geometry.pose_to_matrix(pose)
-    mesh = read_object_mesh(prim, unscaled, cache)
+    exact = _op_pose(prim, cache)
+    pose, scale = exact if exact is not None else decompose(world_matrix(prim, cache))
+    mesh = read_object_mesh(prim, cache, scale)
     dynamic = prim.HasAPI(UsdPhysics.RigidBodyAPI)
     if dynamic and not UsdPhysics.RigidBodyAPI(prim).GetRigidBodyEnabledAttr().Get() in (None, True):
         dynamic = False
