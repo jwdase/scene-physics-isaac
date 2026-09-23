@@ -62,7 +62,8 @@ data/data-set/scene053/
 ```
 
 Other commands: `sp info <scene> [--priors] [--json out.json]`, `sp validate`, `sp list [exp]`,
-`sp render <scene>`, `sp priors <scene> --rule occluder`, `sp migrate <old scene folders>`.
+`sp render <scene>`, `sp priors <scene> --rule occluder`, `sp roles <scene> --measure --target NAME`
+(fix roles / the target in place; priors follow), `sp migrate <old scene folders>`.
 Scenes can be named as paths or as `<experiment>/<scene>`.
 
 ## The scene file

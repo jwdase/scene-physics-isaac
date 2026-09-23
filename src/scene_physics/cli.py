@@ -209,6 +209,50 @@ def cmd_priors(args):
     print(scene.summary())
 
 
+def cmd_roles(args):
+    """Fix roles / the target of a scene in place (no simulation); priors follow the new roles."""
+    from pxr import Usd
+
+    from scene_physics import paths
+    from scene_physics.authoring import analysis
+    from scene_physics.scene import load_scene, priors, usd_io
+
+    path = paths.resolve_scene(args.scene)
+    scene = load_scene(path)
+    cfg = _config(args, path).authoring
+    before = {o.name: o.role for o in scene}
+    if args.measure:
+        for o in scene.dynamic_objects:
+            o.role_source = "measured"  # forget roles set by hand (or carried over from legacy files)
+    for pair in args.set or []:
+        name, _, role = pair.partition("=")
+        if name not in scene:
+            raise KeyError(f"{name!r} is not an object in {scene.name}: {sorted(scene.objects)}")
+        if role not in ("observed", "hidden") or not scene[name].dynamic:
+            raise ValueError(f"--set expects DYNAMIC_OBJECT=observed|hidden, got {pair!r}")
+        scene[name].role, scene[name].role_source = role, "authored"
+    decision = analysis.assign_roles(scene, analysis.measure_visibility(scene), cfg, target=args.target)
+    changed = [o for o in scene if o.role != before[o.name]]
+    if changed:  # priors depend on roles (hidden objects get candidates behind the observed ones)
+        for o in scene.dynamic_objects:
+            if o in changed or o.role == "hidden":
+                o.prior = None
+        priors.assign_priors(scene, cfg, overwrite=False)
+    for w in decision.warnings:
+        print(f"[sp] warning: {w}")
+    problems = analysis.validate(scene)
+    for p in problems:
+        print(f"[sp] warning: {p}")
+    stage = Usd.Stage.Open(str(path))
+    usd_io.update_scene_file(stage, scene, poses=False)
+    stage.GetRootLayer().Save()
+    print(scene.summary())
+    for o in changed:
+        print(f"[sp] {o.name}: {before[o.name]} -> {o.role}")
+    if changed or args.target:
+        print("[sp] renders still show the old roles / target: run `sp render` on this scene")
+
+
 def cmd_library(args):
     from scene_physics import paths
     from scene_physics.scene import library, load_scene
@@ -354,6 +398,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--rot-std", type=float)
     common(s)
     s.set_defaults(func=cmd_priors, needs_kit=False)
+
+    s = sub.add_parser("roles", help="fix observed/hidden roles or the target of a scene in place")
+    s.add_argument("scene")
+    s.add_argument("--measure", action="store_true", help="re-measure every role from the camera, dropping hand-set ones")
+    s.add_argument("--set", nargs="*", metavar="OBJECT=ROLE", help="pin roles, e.g. jug04_006=observed")
+    s.add_argument("--target", help="make this object the target")
+    common(s)
+    s.set_defaults(func=cmd_roles, needs_kit=False)
 
     s = sub.add_parser("library", help="object library: `extract` assets from scenes, or `list` them")
     s.add_argument("action", choices=["extract", "list"])

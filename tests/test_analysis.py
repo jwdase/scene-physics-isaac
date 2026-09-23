@@ -52,3 +52,25 @@ def test_validate_requires_priors_and_ids():
     priors.assign_priors(s, AuthoringConfig())
     s.assign_segmentation_ids()
     assert analysis.validate(s) == []
+
+
+def test_sp_roles_fixes_swapped_legacy_roles(tmp_path):
+    import pytest
+
+    from scene_physics import cli
+    from scene_physics.scene import load_scene, save_scene
+
+    s = scene()
+    s["mug"].role, s["mug"].role_source, s["mug"].tags = "hidden", "legacy", ["target"]  # visible, marked hidden
+    s["block"].role, s["block"].role_source = "observed", "legacy"  # fully hidden, marked observed
+    priors.assign_priors(s, AuthoringConfig())
+    s.assign_segmentation_ids()
+    path = tmp_path / "t.usd"
+    save_scene(s, path)
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["roles", str(path), "--measure", "--target", "block"])
+    assert exc.value.code == 0
+    fixed = load_scene(path)
+    assert fixed["block"].role == "hidden" and fixed["mug"].role == "observed"
+    assert fixed.target.name == "block" and "target" not in fixed["mug"].tags
+    assert len(fixed["block"].prior.means) == 2  # regenerated: one candidate behind each observed object
