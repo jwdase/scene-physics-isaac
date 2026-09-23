@@ -57,12 +57,22 @@ def check_dir(scene_path: Path) -> Path:
 def import_scene(source: str | Path, config: Config, *, name: str | None = None, out: str | Path | None = None,
                  static: list[str] | None = None, tags: dict[str, list[str]] | None = None,
                  overwrite: bool = False) -> Path:
-    """Convert a Blender USD export (or a legacy data-pipeline scene folder) into an authoring scene."""
+    """Convert a Blender USD export (or a legacy data-pipeline scene folder) into an authoring scene.
+
+    A finished scene (``data/<exp>/<scene>/``) comes back as an authoring copy with everything it
+    holds (roles, tags, priors), to be edited and finalized again.
+    """
     from scene_physics.scene import importers, usd_io
 
     source = Path(source)
+    if source.is_dir() and (source / "scene.usd").exists():
+        source = source / "scene.usd"
     if source.is_dir():
         scene = importers.from_legacy_scene(source, camera=config.camera, name=name)
+    elif usd_io.is_scene_file(source):
+        scene = usd_io.read_scene(source)
+        scene.name = name or scene.name
+        scene.metadata["source"] = str(source.resolve())
     else:
         scene = importers.from_usd_export(source, name=name or source.stem, camera=config.camera,
                                           static_names=static or [], tags=tags)

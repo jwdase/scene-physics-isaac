@@ -37,6 +37,9 @@ uv run sp check data-set/scene053 --gui                  # or watch the physics 
 uv run sp finalize data-set/scene053                     # -> data/data-set/scene053/
 ```
 
+To change a finished scene, bring it back for editing with `sp import data/data-set/scene041` (roles,
+tags and priors come along), then `sp check` / `sp open` / `sp finalize --overwrite` as above.
+
 `sp check` simulates the scene under **exactly the physics the model uses** and reports how far every
 object moves before coming to rest, renders the scene from its camera before and after physics, and
 measures how much of each object the camera sees (objects under 10% visible are *hidden*). It writes

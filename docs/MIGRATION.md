@@ -11,6 +11,8 @@
 | `python -m data_pipeline.inference --exp ... --scene ...` / `simulation/sim_sampling.py scene002` | `sp infer data-set/scene002` (`--num-worlds`, `--iterations`, or the old `NUM_WORLDS` / `NUM_EPOCHS` variables) |
 | `python -m data_pipeline.loss_map` + `plot_loss_map` | `sp lossmap data-set/<scene> --resolution 0.01` |
 | whole legacy dataset | `sp migrate data-pipeline/data/data-set/scene* --exp data-set` |
+| fixing a migrated scene (e.g. a floating object) | `sp import data/data-set/scene041` (-> `authoring/`), `sp check`, `sp open`, `sp finalize --overwrite` |
+| fixing roles / the target only | `sp roles data-set/scene051 --measure --target square_wood_block_013`, then `sp render data-set/scene051` |
 | `data_gen/scene_gen.py` (procedural Drop-&-Settle) | not ported: every scene is hand-authored now. The pieces it needs (PhysX settling, exact visibility from the ray caster, the scene writer) are all here if it is wanted again. |
 
 ## Files

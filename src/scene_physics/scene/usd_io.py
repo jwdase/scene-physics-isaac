@@ -369,6 +369,16 @@ def read_scene_metadata(stage: Usd.Stage) -> dict[str, Any]:
     return meta
 
 
+def is_scene_file(path) -> bool:
+    """True for a file already in this package's format (objects under /World/Objects, sp:scene:* on /World)."""
+    try:
+        stage = open_stage(path)
+    except Exception:
+        return False
+    world = stage.GetPrimAtPath(S.WORLD)
+    return bool(world and stage.GetPrimAtPath(S.OBJECTS) and world.HasAttribute(S.SCENE_NAME))
+
+
 def read_scene(source) -> Scene:
     """Load a scene from a path or an open ``Usd.Stage``."""
     stage = source if isinstance(source, Usd.Stage) else open_stage(source)
