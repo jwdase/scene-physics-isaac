@@ -14,7 +14,7 @@ Pure (Warp ray caster); no simulator needed.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from scipy import ndimage
@@ -32,6 +32,7 @@ class Occlusion:
     silhouette: int  # amodal silhouette pixels
     margin_px: int
     in_frame: bool  # the whole silhouette is inside the image
+    coverage: dict = field(default_factory=dict)  # object -> fraction of the silhouette it covers (in front)
 
     @property
     def hidden(self) -> bool:
@@ -84,8 +85,10 @@ class OcclusionMeter:
         k = self.names.index(name)
         p = self.poses(poses)
         h, w = self.camera.height, self.camera.width
-        d_o = self.rc.render(p, hidden=[k, *self.transparent]).distance.numpy().reshape(h, w)
+        others = self.rc.render(p, hidden=[k, *self.transparent])
+        d_o = others.distance.numpy().reshape(h, w)
         d_o = np.where(np.isnan(d_o), np.inf, d_o)
+        ids = others.ids.numpy().reshape(h, w)
         d_t = self.rc.render(p, solo=k).distance.numpy().reshape(h, w)
         d_t = np.where(np.isnan(d_t), np.inf, d_t)
         sil = np.isfinite(d_t)
@@ -99,7 +102,10 @@ class OcclusionMeter:
         border = np.zeros_like(sil)
         border[[0, -1], :] = True
         border[:, [0, -1]] = True
-        return Occlusion(name, visible, margin, int(sil.sum()), margin_px, not bool((sil & border).any()))
+        covered = ids[sil & (d_o < d_t)]
+        n_sil = max(int(sil.sum()), 1)
+        coverage = {self.names[i]: int((covered == i).sum()) / n_sil for i in np.unique(covered) if i >= 0}
+        return Occlusion(name, visible, margin, int(sil.sum()), margin_px, not bool((sil & border).any()), coverage)
 
 
 def occlusion(scene: Scene, name: str, *, camera: CameraSpec | None = None, margin_px: int = 2,

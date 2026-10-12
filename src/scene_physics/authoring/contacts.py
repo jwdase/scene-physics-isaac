@@ -103,6 +103,22 @@ class ContactAnalyzer:
                   device=self.device)
         return d.numpy(), world, Rotation.from_quat(pb[3:]).apply(n.numpy())
 
+    def separation(self, a: str, b: str, poses: dict[str, np.ndarray] | None = None) -> float:
+        """Smallest signed distance between the surfaces of ``a`` and ``b`` (negative = overlap)."""
+        d, _, _ = self.distances(a, b, poses)
+        sep = float(d.min())
+        if self.scene[b].dynamic or not self.scene[a].dynamic:
+            d2, _, _ = self.distances(b, a, poses)
+            sep = min(sep, float(d2.min()))
+        return sep
+
+    def separations(self, names: list[str], poses: dict[str, np.ndarray] | None = None,
+                    others: list[str] | None = None) -> dict[tuple[str, str], float]:
+        """``{(a, b): separation}`` for every a in ``names`` and every other object b (or ``others``)."""
+        others = others if others is not None else [o.name for o in self.scene]
+        return {(a, b): self.separation(a, b, poses) for a in names for b in others if b != a and
+                not (b in names and b < a)}
+
     @staticmethod
     def _rests_on(d, world, normals, tol) -> bool:
         close = d < tol
@@ -145,6 +161,15 @@ def relations(contacts: list[Contact]) -> set[tuple[str, str, str]]:
             a, b = c.pair
             out.add((a, "touch", b))
     return out
+
+
+def changed(before: dict, after: dict, *, touching: float = 0.002, apart: float = 0.004) -> tuple[list, list]:
+    """(lost, gained) contacts between two separation maps, with hysteresis so that gaps near the contact
+    tolerance do not flip: lost = was touching (< ``touching``) and is now apart (> ``apart``); gained =
+    was apart and is now touching."""
+    lost = sorted(k for k, s in before.items() if s < touching and after.get(k, np.inf) > apart)
+    gained = sorted(k for k, s in before.items() if s > apart and after.get(k, np.inf) < touching)
+    return lost, gained
 
 
 def compare(before: set, after: set, *, involving: set[str] | None = None) -> tuple[set, set]:

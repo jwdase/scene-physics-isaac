@@ -1,0 +1,19 @@
+# Hand edits applied to the data-set-2 poses before `sp rework` relaxes a scene (see
+# src/scene_physics/authoring/rework.py: load_edits / apply_edits). Every edit says why it was needed.
+#   move = { object = [dx, dy, yaw_deg] }  or  [dx, dy, yaw_deg, dz]   (metres, about the object's centre)
+#   with = { object = [other, ...] }        objects that move rigidly together with `object`
+#   pose = { object = [x, y, z, qx, qy, qz, qw] }
+
+# ---------------------------------------------------------------- authoring errors in data-set-2
+[scene025]
+note = "glass1 floated 58 mm above the table in data-set-2 (it would fall at the first step): set on the table"
+move = { glass1_001_001 = [0.0, 0.0, 0.0, -0.0576] }
+
+[scene061]
+note = "the stone coaster floated 44 mm above the table: set on the table"
+move = { round_coaster_stone_004 = [0.0, 0.0, 0.0, -0.0443] }
+
+[scene062]
+note = "the coaster resting on the hidden block passed 12.6 mm into the candle holder (the occluder); physics shoved the holder 45 mm forward. Instead the block and its coaster move 5.7 cm back, so the coaster just touches the holder, as designed"
+move = { square_wood_block_004 = [0.0, 0.057, 0.0] }
+with = { square_wood_block_004 = ["round_coaster_stone_001"] }

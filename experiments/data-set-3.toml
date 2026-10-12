@@ -13,3 +13,12 @@ target = [0.0, 0.0, 0.8]
 up = [0.0, 0.0, 1.0]
 # orbit around the target: azimuth_deg=0, elevation_deg=8, distance_m=1.5; FOV = dolly zoom of p01_f03
 # (34 deg at 1.7 m). Chosen by sweeping 420 eye positions over all 70 scenes: see docs/DATA_SET_3.md.
+
+[physics]
+# The table collides as its bounding box (a solid block whose top face is exactly the table top) instead of
+# its triangle mesh, and the solver runs 32/8 instead of 16/4 iterations. Relaxing all 70 data-set-2 scenes:
+# scenes at rest 69 -> 70, verified rest states 66 -> 69, robust to small pushes 62 -> 67 (90th percentile
+# displacement after a push 8.3 -> 3.2 mm); ~30% more time per physics step. See docs/DATA_SET_3.md.
+static_approximation = "boundingCube"
+position_iterations = 32
+velocity_iterations = 8

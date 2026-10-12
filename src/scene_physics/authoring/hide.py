@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from scene_physics.authoring.contacts import ContactAnalyzer, relations
+from scene_physics.authoring.contacts import ContactAnalyzer, changed, relations
 from scene_physics.authoring.occlusion import OcclusionMeter
 from scene_physics.camera import CameraSpec
 from scene_physics.scene.model import Scene
@@ -50,6 +50,7 @@ class HideConfig:
     max_candidates: int = 20000
     prefilter: bool = True  # reject candidates at half resolution first (4x cheaper)
     table_margin: float = 0.02  # moved objects keep their centre this far inside the table top
+    min_design_coverage: float = 0.5  # the design's occluders must cover at least this much of the target
 
 
 # Search stages for sp rework: small moves first; larger target moves (and turns) only if those fail.
@@ -112,8 +113,15 @@ def _grid(max_v: float, step: float) -> np.ndarray:
 
 class Hider:
     def __init__(self, scene: Scene, target: str, camera: CameraSpec, cfg: HideConfig | None = None,
-                 occluders: list[str] | None = None, device: str | None = None):
+                 occluders: list[str] | None = None, device: str | None = None,
+                 intent: dict[tuple[str, str], float] | None = None, design_occluders: list[str] | None = None):
+        """``intent``: separations ``{(target, other): metres}`` that the target's contacts must match
+        (the source design); without it the current contacts are kept. ``design_occluders``: the objects
+        the target hides behind in the design; together they must keep covering most of it
+        (``min_design_coverage``), so the target is not simply moved behind something else."""
         self.scene, self.target, self.cfg = scene, target, cfg or HideConfig()
+        self.intent = intent or {}
+        self.design_occluders = list(design_occluders or [])
         self.meter = OcclusionMeter(scene, camera, device=device)
         self.coarse = None
         if self.cfg.prefilter and camera.width >= 4 and camera.height >= 4:
@@ -124,7 +132,7 @@ class Hider:
         self.group = support_group(scene, self.rels, target)
         self.occluders = [o for o in (occluders if occluders is not None else self.find_occluders())
                           if o not in self.group and scene[o].dynamic]
-        self._base_pen: dict[tuple[str, str], float] = {}
+        self._base_sep: dict[tuple, dict] = {}
 
     def find_occluders(self) -> list[str]:
         """Dynamic objects in front of the target's silhouette (largest coverage first)."""
@@ -138,28 +146,63 @@ class Hider:
         return [n for n, _ in sorted(counts.items(), key=lambda kv: -kv[1]) if n in m.dynamic]
 
     # ------------------------------------------------------------------ checks
-    def _relations_of(self, names: list[str], poses: dict[str, np.ndarray]) -> set:
-        rels = relations(self.contacts.contacts(poses, tol=self.cfg.contact_tol))
-        return {r for r in rels if r[0] in names or r[2] in names}
-
-    def _penetration(self, a: str, b: str, poses) -> float:
-        d, _, _ = self.contacts.distances(a, b, poses)
-        pen = max(0.0, -float(d.min()))
-        if self.scene[b].dynamic:
-            d2, _, _ = self.contacts.distances(b, a, poses)
-            pen = max(pen, -float(d2.min()))
-        return pen
-
-    def _overlaps(self, moved: list[str], poses) -> bool:
+    def _separations(self, moved: list[str], poses) -> dict:
         others = [o.name for o in self.scene if o.name not in moved]
-        for a in moved:
-            for b in others:
-                key = (a, b)
-                if key not in self._base_pen:
-                    self._base_pen[key] = self._penetration(a, b, None)
-                if self._penetration(a, b, poses) > self._base_pen[key] + self.cfg.max_penetration:
-                    return True
-        return False
+        return self.contacts.separations(moved, poses, others=others)
+
+    def intent_ok(self, seps: dict) -> bool:
+        """The target touches exactly what the design says it touches (``intent``, with hysteresis)."""
+        tol = self.cfg.contact_tol
+        for (a, b), want in self.intent.items():
+            s = seps.get((a, b), seps.get((b, a)))
+            if s is None:
+                continue
+            if want < tol and s > 2 * tol:
+                return False
+            if want > 2 * tol and s < tol:
+                return False
+        return True
+
+    def _target_seps(self, poses) -> dict:
+        """Separations of the target from the objects named in ``intent`` (moved or not)."""
+        others = {b if a == self.target else a for a, b in self.intent}
+        return {(self.target, o): self.contacts.separation(self.target, o, poses) for o in sorted(others)
+                if o != self.target}
+
+    def contacts_kept(self, moved: list[str], poses) -> bool:
+        """No new overlap beyond ``max_penetration``; the target's contacts as in ``intent`` (when given);
+        every other contact of a moved object neither lost nor gained."""
+        key = tuple(moved)
+        if key not in self._base_sep:
+            self._base_sep[key] = self._separations(moved, None)
+        before, after = self._base_sep[key], self._separations(moved, poses)
+        for k, s in after.items():
+            if -s > max(0.0, -before[k]) + self.cfg.max_penetration:
+                return False
+        if self.intent:
+            if not self.intent_ok(self._target_seps(poses)):
+                return False
+            governed = set(self.intent) | {(b, a) for a, b in self.intent}
+            before = {k: v for k, v in before.items() if k not in governed}
+        lost, gained = changed(before, after, touching=self.cfg.contact_tol, apart=2 * self.cfg.contact_tol)
+        return not lost and not gained
+
+    def behind_design_occluders(self, occ) -> bool:
+        if not self.design_occluders:
+            return True
+        return sum(occ.coverage.get(n, 0.0) for n in self.design_occluders) >= self.cfg.min_design_coverage
+
+    def _support_shift(self, old_xy: np.ndarray, new_xy: np.ndarray) -> float:
+        """Height change of the support surface between two points (non-zero on a tilted table)."""
+        sup = self.scene.support
+        if sup is None:
+            return 0.0
+        rot = Rotation.from_quat(sup.pose[3:])
+        n = rot.apply([0.0, 0.0, 1.0])
+        if abs(n[2]) < 0.5:
+            return 0.0
+        d = np.asarray(new_xy, dtype=float) - np.asarray(old_xy, dtype=float)
+        return float(-(n[0] * d[0] + n[1] * d[1]) / n[2])
 
     # ------------------------------------------------------------------ search
     def candidates(self):
@@ -191,17 +234,20 @@ class Hider:
         pivot = self.scene[self.target].world_points.mean(axis=0)
         pivot[2] = 0.0
         poses = move_poses(self.scene, self.group, *move, pivot)
+        dz = self._support_shift(pivot[:2], pivot[:2] + np.asarray(move[:2]))
+        for n in self.group:
+            poses[n][2] += dz
         moved = list(self.group)
         if occ is not None:
             opiv = self.scene[occ].world_points.mean(axis=0)
             opiv[2] = 0.0
             poses.update(move_poses(self.scene, [occ], *omove, opiv))
+            poses[occ][2] += self._support_shift(opiv[:2], opiv[:2] + np.asarray(omove[:2]))
             moved.append(occ)
         return poses, moved
 
     def search(self) -> HideResult:
         c = self.cfg
-        before = {}
         tried = 0
         best_margin = None
         x0, x1, y0, y1 = self.table
@@ -220,13 +266,9 @@ class Hider:
                 best_margin = o.margin
             if not o.hidden:
                 continue
-            if self._overlaps(moved, poses):
+            if not self.behind_design_occluders(o):
                 continue
-            key = tuple(moved)
-            if key not in before:
-                before[key] = self._relations_of(moved, {})
-            after = self._relations_of(moved, poses)
-            if after != before[key]:
+            if not self.contacts_kept(moved, poses):
                 continue
             moves = {n: tuple(float(v) for v in move) for n in self.group}
             if occ is not None:

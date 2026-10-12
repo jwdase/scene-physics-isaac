@@ -111,3 +111,21 @@ def test_hide_moves_the_target_group_behind_the_occluder():
         s[n].pose = p
     assert occlusion.occlusion(s, "block", margin_px=1, scale=1.0).hidden
     assert ("lid", "on", "block") in contacts.relations(contacts.ContactAnalyzer(s, samples=2000).contacts())
+
+
+def test_hide_restores_the_designed_contacts():
+    from scene_physics.authoring import hide
+
+    table = SceneObject("table", [0, 0, 0.45, 0, 0, 0, 1], box(0.6, 0.6, 0.45), dynamic=False)
+    wall = SceneObject("wall", [0, -0.3, 0.98, 0, 0, 0, 1], box(0.12, 0.02, 0.08))
+    block = SceneObject("block", [0.0, 0.2, 0.92, 0, 0, 0, 1], box(0.03, 0.03, 0.02))  # hidden behind the wall
+    loaf = SceneObject("loaf", [0.0, 0.26, 0.92, 0, 0, 0, 1], box(0.03, 0.03, 0.02))  # now touching the block
+    s = Scene("restore", {o.name: o for o in (table, wall, block, loaf)}, CAM)
+    assert occlusion.occlusion(s, "block", margin_px=1, scale=1.0).hidden
+    intent = {("block", "loaf"): 0.01, ("block", "wall"): 0.4}  # the design: 1 cm apart
+    cfg = hide.HideConfig(margin_px=1, max_shift=0.02, shift_step=0.005, yaw_step_deg=0.0, occluder_max_shift=0.0)
+    res = hide.Hider(s, "block", CAM, cfg, device="cpu", intent=intent).search()
+    assert res.found, res.describe()
+    assert res.moves["block"][1] < 0  # away from the loaf, towards the wall
+    an = contacts.ContactAnalyzer(s, samples=2000, device="cpu")
+    assert an.separation("block", "loaf", res.poses) > 0.002
