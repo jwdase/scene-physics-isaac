@@ -381,6 +381,21 @@ def posterior_map(scene: Scene, post: OcclusionPosterior, size: int = 480) -> np
     return np.asarray(img)
 
 
+def decoy_ok(d: dict) -> bool:
+    """Rule 4: another hidden region (a decoy) holds at least 1.5 times the occlusion-only mass of the target's
+    own region, and at most a quarter of the mass lies within ``radius`` of the target. ``d`` is the summary
+    stored in reports (``near``, ``groups``, ``truth_group``, ``decoy``, ``aligned``)."""
+    if not d or not d.get("groups") or d["aligned"]:
+        return False
+    groups = d["groups"]
+    return d["near"] <= 0.25 and groups[d["decoy"]] >= 1.5 * groups.get(d["truth_group"], 0.0)
+
+
+def posterior_summary(post: OcclusionPosterior) -> dict:
+    return {"near": post.near, "groups": post.groups, "truth_group": post.truth_group, "decoy": post.decoy,
+            "aligned": post.aligned, "line": post.line()}
+
+
 def post_target(scene: Scene, post: OcclusionPosterior) -> str:
     for o in scene.dynamic_objects:
         if np.allclose(o.pose[:2], post.truth_xy):
@@ -420,13 +435,8 @@ class Assessment:
 
     @property
     def decoy_ok(self) -> bool:
-        """Occlusion alone would not find the target: another hidden region (a decoy) holds at least 1.5 times the
-        occlusion-only mass of the region the target is in, and at most a quarter of it is near the target."""
-        d = self.occlusion_only
-        if not d or d["aligned"]:
-            return False
-        groups = d["groups"]
-        return d["near"] <= 0.25 and groups[d["decoy"]] >= 1.5 * groups.get(d["truth_group"], 0.0)
+        """Occlusion alone would not find the target (rule 4, :func:`decoy_ok`)."""
+        return decoy_ok(self.occlusion_only)
 
     @property
     def observed_ok(self) -> bool:
@@ -549,8 +559,7 @@ def assess(scene: Scene, spec: SceneSpec, config: Config, *, workdir: Path, pert
         motion_mm={o.name: o.total_displacement * 1e3 for o in rep.objects},
         rotation_deg={o.name: o.total_rotation_deg for o in rep.objects},
         masses=masses, wall_seconds=time.time() - t0,
-        occlusion_only={"near": post.near, "groups": post.groups, "truth_group": post.truth_group,
-                        "decoy": post.decoy, "aligned": post.aligned, "line": post.line()})
+        occlusion_only=posterior_summary(post))
     return out, res, {"without_target": {n: p for n, p in cf_end.items() if n != target}, "posterior": post}
 
 
@@ -668,6 +677,119 @@ def rtx_preview(scene: Scene, config: Config, out_png: Path, workdir: Path, qual
     omni.usd.get_context().new_stage()
     tmp.unlink(missing_ok=True)
     return out_png
+
+
+# ============================================================================== preview (no simulator)
+
+
+@dataclass
+class MarginReport:
+    visible: int  # target pixels in front of everything
+    margin: int  # pixels of the target's silhouette grown by margin_px that nothing covers
+    where: str  # where those pixels are on the target's outline ("right edge 9, top 2")
+    crop: np.ndarray | None = None  # zoomed picture: occluders coloured, outline red, offending pixels magenta
+
+
+def margin_pixels(scene: Scene, target: str, camera, *, margin_px: int = 2, device: str | None = "cpu") -> MarginReport:
+    """Like :meth:`OcclusionMeter.measure`, but says *where* the target shows (or comes within ``margin_px`` of
+    showing), which tells which way to move it or its occluder."""
+    from scipy import ndimage
+
+    from scene_physics.authoring.occlusion import transparent_objects
+    from scene_physics.render import raycast
+
+    rc = raycast.Raycaster.from_scene(scene, num_worlds=1, camera=camera, device=device, floor=False)
+    names = rc.object_names
+    poses = scene.truth_poses(names[: rc.num_dynamic])[None]
+    k = names.index(target)
+    others = rc.render(poses, hidden=[k, *[names.index(n) for n in transparent_objects(scene) if n in names]])
+    h, w = camera.height, camera.width
+    d_o = np.nan_to_num(others.distance.numpy().reshape(h, w), nan=np.inf)
+    d_t = np.nan_to_num(rc.render(poses, solo=k).distance.numpy().reshape(h, w), nan=np.inf)
+    sil = np.isfinite(d_t)
+    if not sil.any():
+        return MarginReport(0, 0, "outside the image")
+    d_min = ndimage.minimum_filter(d_t, size=2 * margin_px + 1, mode="constant", cval=np.inf) if margin_px else d_t
+    bad = np.isfinite(d_min) & ~(d_o < d_min)
+    visible = int((sil & ~(d_o < d_t)).sum())
+    ys, xs = np.nonzero(sil)
+    y0, y1, x0, x1 = ys.min(), ys.max(), xs.min(), xs.max()
+    sides: dict[str, int] = {}
+    for y, x in zip(*np.nonzero(bad)):
+        fx, fy = (x - x0) / max(x1 - x0, 1), (y - y0) / max(y1 - y0, 1)
+        side = ("left" if fx < 0.25 else "right" if fx > 0.75 else "") + (" top" if fy < 0.25 else " bottom" if fy > 0.75 else "")
+        side = side.strip() or "middle"
+        sides[side] = sides.get(side, 0) + 1
+    where = ", ".join(f"{k_} {v}" for k_, v in sorted(sides.items(), key=lambda kv: -kv[1])) or "-"
+    ids = others.ids.numpy().reshape(h, w)
+    img = np.full((h, w, 3), 230, np.uint8)
+    pal = np.array([[200, 120, 40], [60, 160, 90], [90, 160, 220], [200, 100, 170], [170, 170, 80], [100, 200, 200]])
+    for i in range(len(names)):
+        img[ids == i] = pal[i % len(pal)]
+    img[sil & ~ndimage.binary_erosion(sil)] = [255, 0, 0]
+    img[bad] = [255, 0, 255]
+    pad = 12
+    crop = img[max(y0 - pad, 0):y1 + pad, max(x0 - pad, 0):x1 + pad]
+    crop = np.repeat(np.repeat(crop, 3, axis=0), 3, axis=1)
+    return MarginReport(visible, int(bad.sum()), where, crop)
+
+
+def preview(spec_path: str | Path, config: Config, *, out_dir: str | Path | None = None, device: str = "cpu",
+            log=None) -> dict:
+    """``sp preview``: compose a spec and check what can be checked without physics, in seconds on the CPU:
+    the target's occlusion with the margin (and where it fails), the other objects' visibility and framing,
+    interpenetration at the composed poses, and the occlusion-only posterior (rule 4). Rest state, robustness
+    and the physical evidence need ``sp compose``. Pictures: ``<out_dir>/preview.png`` and ``margin.png``."""
+    from PIL import Image
+
+    from scene_physics.authoring import analysis, workflow
+    from scene_physics.authoring.occlusion import OcclusionMeter
+
+    log = log or _print
+    spec = SceneSpec.load(spec_path)
+    notes: list[str] = []
+    scene = compose(spec, config, device=device, log=notes.append)
+    target = safe_prim_name(spec.target)
+    if out_dir is None:
+        auth = workflow.authoring_path(config.experiment or "default", spec.name)
+        out_dir = auth.with_name(auth.stem + ".compose")
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cam = scene.camera.scaled(config.render.scale)
+    m2 = margin_pixels(scene, target, cam, margin_px=2, device=device)
+    m4 = margin_pixels(scene, target, cam, margin_px=4, device=device)
+    vis = analysis.measure_visibility(scene, device=device)
+    meter = OcclusionMeter(scene, cam, device=device)
+    frame = [o.name for o in scene.dynamic_objects if not meter._roi(o.name, o.pose, 0)[4]]
+    over = analysis.overlaps(scene, device=device)
+    post = occlusion_posterior(scene, target, device=device)
+    summary = posterior_summary(post)
+    observed = {n: float(v) for n, v in vis.fractions.items() if scene[n].dynamic and n != target}
+    poses = {o.name: o.pose for o in scene.dynamic_objects}
+    pictures(scene, poses, target, {"posterior": post}, out_dir / "preview.png", device=device)
+    if m2.crop is not None:
+        Image.fromarray(m2.crop).save(out_dir / "margin.png")
+    flag = lambda b: "ok" if b else "NO"  # noqa: E731
+    hidden = m2.visible == 0 and m2.margin == 0 and not frame
+    lines = [
+        f"{spec.name} preview (composed poses, no physics: rest, robustness and evidence need `sp compose`)",
+        f"  target hidden   : {flag(hidden)} ({m2.visible} px visible, {m2.margin} px inside the 2 px margin"
+        + (f": {m2.where}" if m2.margin else "") + f"); {m4.margin} px inside a 4 px margin"
+        + (f" ({m4.where})" if m4.margin else "") + " - relaxation moves things by millimetres, keep some spare",
+        "  others visible  : " + ", ".join(f"{n} {v:.0%}" for n, v in observed.items())
+        + ("" if all(v >= 0.10 for v in observed.values()) else "  (some below 10%)"),
+        f"  in frame        : {flag(not frame)} {frame or ''}",
+        f"  overlaps        : {flag(not over)} " + ("; ".join(analysis.overlap_lines(over)) if over else ""),
+        f"  occlusion only  : {flag(decoy_ok(summary))} {post.line()}",
+        "  placement       : " + "; ".join(n.replace("[compose] ", "") for n in notes),
+    ]
+    text = "\n".join(lines)
+    (out_dir / "preview.txt").write_text(text + "\n")
+    log(text)
+    log(f"[preview] pictures: {out_dir}/preview.png" + (f", {out_dir}/margin.png" if m2.crop is not None else ""))
+    return {"name": spec.name, "hidden": hidden, "margin2": m2.margin, "margin4": m4.margin, "where": m2.where,
+            "observed": observed, "out_of_frame": frame, "overlaps": analysis.overlap_lines(over),
+            "occlusion_only": summary, "decoy_ok": decoy_ok(summary)}
 
 
 # ============================================================================================== driver

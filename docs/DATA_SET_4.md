@@ -71,6 +71,10 @@ Hides it: the object that covers the target in the stimulus. Without the target:
 
 ## How the scenes were made (and how to make more)
 
+The full process, with the pitfalls met along the way, ideas for new relationships and an asset table, is in
+[`docs/COMPOSING_SCENES.md`](COMPOSING_SCENES.md); the `scene-composer` agent (`.claude/agents/`) follows it.
+In short:
+
 A scene is a spec in `experiments/data-set-4/sceneNNN.toml`: the objects from the library (`sp library list`)
 in placement order, each with a rotation of its resting pose, a footprint position, and optional slides:
 
@@ -98,9 +102,10 @@ ray casting surface samples against the other meshes. `sp compose <spec> --exp d
 * with `--finalize`, a scene that passes every check is written to `data/data-set-4/<name>/` with its
   stimulus.
 
-The loop for a new scene: write the spec, run `sp compose` (add `--no-render` while iterating), read
-`report.txt` and look at `views.png`, edit the spec, repeat. Placement problems show in the pictures; the
-report says which rule fails.
+The loop for a new scene: write the spec, check it in seconds with `sp preview` (CPU: placement, occlusion
+and where it fails, visibility, overlaps, decoy), then run `sp compose --no-render` (physics), read
+`report.txt` and look at `views.png`, edit the spec, repeat. `sp review data-set-4 --leak` re-checks the
+finished scenes and writes `data/data-set-4/review.md` and a with/without-target GIF per scene.
 
 ## Files
 

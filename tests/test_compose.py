@@ -102,3 +102,26 @@ def test_occlusion_posterior_finds_the_decoy():
     assert post.groups["big"] > 1.5 * post.groups["small"]
     assert post.near < 0.25
     assert len(post.xy) and np.isclose(post.weight.sum(), 1.0)
+
+
+def test_margin_pixels_say_where_the_target_peeks_out():
+    table = SceneObject("table", [0, 0, 0.0, 0, 0, 0, 1], box(0.5, 0.5, 0.35), dynamic=False)
+    wall = SceneObject("wall", [0.0, -0.1, 0.7, 0, 0, 0, 1], box(0.05, 0.01, 0.08))
+    hidden = SceneObject("target", [0.0, -0.05, 0.7, 0, 0, 0, 1], box(0.02, 0.02, 0.04))
+    scene = Scene("m", {o.name: o for o in (table, wall, hidden)}, CAM)
+    ok = compose.margin_pixels(scene, "target", CAM.scaled(2.0), margin_px=2)
+    assert ok.visible == 0 and ok.margin == 0 and ok.crop is not None
+    scene["target"].pose = np.array([0.04, -0.05, 0.7, 0, 0, 0, 1.0])  # slid right: its right edge shows
+    peek = compose.margin_pixels(scene, "target", CAM.scaled(2.0), margin_px=2)
+    assert peek.margin > 0 and peek.where.startswith("right")
+
+
+def test_preview_checks_a_spec_without_physics(fake_library, tmp_path, monkeypatch):
+    coarse = compose.occlusion_posterior
+    monkeypatch.setattr(compose, "occlusion_posterior", lambda s, t, **kw: coarse(s, t, spacing=0.05, **kw))
+    spec = tmp_path / "s.toml"
+    spec.write_text('name = "s"\ntarget = "a"\n\n[[object]]\nname = "slab"\nasset = "slab"\nat = [0.0, -0.1]\n\n'
+                    '[[object]]\nname = "a"\nasset = "cube"\nat = [0.0, -0.05]\n')
+    res = compose.preview(spec, config(), out_dir=tmp_path / "out", log=lambda m: None)
+    assert res["name"] == "s" and "occlusion_only" in res and not res["overlaps"]
+    assert (tmp_path / "out" / "preview.png").exists() and (tmp_path / "out" / "preview.txt").exists()

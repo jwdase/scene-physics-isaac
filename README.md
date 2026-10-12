@@ -96,8 +96,11 @@ data-set-3 was made from data-set-2: see [`docs/DATA_SET_3.md`](docs/DATA_SET_3.
 (library objects, how each is rotated, dropped and slid into contact), relaxes it and reports whether it
 works as a hidden-object trial: target hidden with a margin, verified and robust rest state, physical evidence
 of the target, and a decoy hiding place that an occlusion-only guess would prefer. Pictures of every attempt go
-to `authoring/<exp>/<scene>.compose/`; `--finalize` writes the finished scene. data-set-4 was made this way:
-see [`docs/DATA_SET_4.md`](docs/DATA_SET_4.md).
+to `authoring/<exp>/<scene>.compose/`; `--finalize` writes the finished scene. `sp preview <spec>` checks a spec
+in seconds without physics (CPU); `sp review <exp>` re-checks finished scenes and makes a GIF of each with and
+without its target. data-set-4 was made this way: see [`docs/DATA_SET_4.md`](docs/DATA_SET_4.md). The process is
+written up in [`docs/COMPOSING_SCENES.md`](docs/COMPOSING_SCENES.md), and the `scene-composer` agent
+(`.claude/agents/scene-composer.md`) follows it: in Claude Code, ask it to add scenes to a dataset.
 
 ## The scene file
 

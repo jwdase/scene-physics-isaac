@@ -57,3 +57,5 @@ Guidance for Claude Code in this repository. Read `README.md` first (workflow an
 
 - Work on a branch; commit with a descriptive message after each coherent step.
 - After changing authoring/rendering code, run `uv run sp check` on a real scene and look at `check.png`.
+- Adding scenes to a dataset: follow `docs/COMPOSING_SCENES.md` (`sp preview` → `sp compose` → `sp finalize` →
+  `sp review`), or use the `scene-composer` agent, which does exactly that.

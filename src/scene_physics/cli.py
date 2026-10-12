@@ -12,6 +12,10 @@
     uv run sp add data-set/scene060 jug04 --at 0.1 -0.2       # then objects from the library
     uv run sp library list
 
+    uv run sp preview experiments/data-set-4/scene011.toml --exp data-set-4    # compose a spec, check it (CPU, s)
+    uv run sp compose experiments/data-set-4/scene011.toml --exp data-set-4    # + physics: relax, evidence, ...
+    uv run sp review data-set-4                                                # check finished scenes, GIFs
+
 Scenes can be given as a path (``scene.usd`` or its directory) or as ``<experiment>/<scene>``, looked
 up under ``data/`` and then ``authoring/``.
 """
@@ -126,6 +130,31 @@ def cmd_compose(args):
             failed.append(res.name)
     if failed:
         print(f"[sp] not yet passing: {', '.join(failed)}", flush=True)
+
+
+def cmd_preview(args):
+    if args.device == "cpu":
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""  # never touch the GPU (Isaac Sim may be using it)
+    from scene_physics.authoring import compose
+
+    cfg = _config(args)
+    bad = []
+    for spec in args.specs:
+        res = compose.preview(spec, cfg, device=args.device)
+        if not (res["hidden"] and res["decoy_ok"] and not res["overlaps"]):
+            bad.append(res["name"])
+    if bad:
+        print(f"[sp] preview not clean: {', '.join(bad)}", flush=True)
+
+
+def cmd_review(args):
+    from scene_physics.authoring import review
+
+    args.exp = args.experiment
+    res = review.review(args.experiment, args.scenes or None, _config(args), gif=not args.no_gif, leak=args.leak)
+    bad = [n for n, r in res.items() if not r.get("ok")]
+    if bad:
+        raise SystemExit(f"not OK: {', '.join(bad)} (see data/{args.experiment}/review.md)")
 
 
 def cmd_render(args):
@@ -427,6 +456,21 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--no-render", action="store_true", help="no RTX (ray-cast pictures only)")
     common(s)
     s.set_defaults(func=cmd_compose, needs_kit=True)
+
+    s = sub.add_parser("preview", help="scene spec -> composed scene checked without physics in seconds (CPU): "
+                                       "occlusion with margin (and where it fails), visibility, overlaps, decoy")
+    s.add_argument("specs", nargs="+")
+    s.add_argument("--device", default="cpu", help="warp device (default cpu: safe while Isaac Sim uses the GPU)")
+    common(s)
+    s.set_defaults(func=cmd_preview, needs_kit=False)
+
+    s = sub.add_parser("review", help="check the finished scenes of an experiment: rest, evidence, occlusion, "
+                                      "decoy, validity; counterfactual GIFs; review.md")
+    s.add_argument("experiment")
+    s.add_argument("scenes", nargs="*", help="scene names (default: all)")
+    s.add_argument("--no-gif", action="store_true", help="skip the with/without-target GIFs")
+    s.add_argument("--leak", action="store_true", help="also render each stimulus without its target (shadows)")
+    s.set_defaults(func=cmd_review, needs_kit=True)
 
     s = sub.add_parser("render", help="render stimulus + segmentation for a scene")
     s.add_argument("scene")
