@@ -53,6 +53,7 @@ class ReworkConfig:
     cue_visibility_keep: float = 0.75  # ... objects touching the target keep 75% of their visible fraction
     other_visibility_keep: float = 0.5  # ... the others keep half
     resettle_m: float = 0.015  # after an edit, visible objects end within this of where the edit put them
+    search_device: str | None = None  # None: the default warp device (the GPU; Kit's CPU warp is slower)
     resettle_deg: float = 8.0
 
 
@@ -227,7 +228,7 @@ def rework_scene(source: Scene, config: Config, cfg: ReworkConfig | None = None,
         # hide the target and/or restore the design's contacts with the smallest edit
         for stage in cfg.hide_stages:
             h = Hider(scene, target, stimulus_cam, stage, intent=intent, design_occluders=design_occluders,
-                      visibility_floor=floors).search(exclude=failed_edits)
+                      visibility_floor=floors, device=cfg.search_device).search(exclude=failed_edits)
             if h.found:
                 break
         rnd.hide = (rnd.hide + "; " if rnd.hide else "") + h.describe()
