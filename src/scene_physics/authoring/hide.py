@@ -53,9 +53,12 @@ class HideConfig:
     min_design_coverage: float = 0.5  # the design's occluders must cover at least this much of the target
 
 
-# Search stages for sp rework: small moves first; larger target moves (and turns) only if those fail.
+# Search stages for sp rework: small moves first; then moderate occluder moves; larger target moves (and
+# turns) only if those fail.
 STAGES = (
     HideConfig(),
+    HideConfig(max_shift=0.02, shift_step=0.01, max_yaw_deg=10.0, yaw_step_deg=5.0, occluder_max_shift=0.04,
+               occluder_step=0.01, occluder_max_yaw_deg=15.0),
     HideConfig(max_shift=0.10, shift_step=0.01, max_yaw_deg=45.0, yaw_step_deg=15.0, occluder_max_shift=0.0,
                occluder_max_yaw_deg=0.0, unit_m=0.02, unit_deg=15.0),
     HideConfig(max_shift=0.16, shift_step=0.02, max_yaw_deg=90.0, yaw_step_deg=15.0, occluder_max_shift=0.03,
@@ -147,6 +150,16 @@ class Hider:
         self.group = connected_group(scene, group_rels, target)
         self.occluders = [o for o in (occluders if occluders is not None else self.find_occluders())
                           if o not in self.group and scene[o].dynamic]
+        # moving visible objects along with the hidden target changes the stimulus: weigh such group moves
+        # like occluder moves
+        visible_members = []
+        for n in self.group:
+            if n == target:
+                continue
+            o = self.meter.measure(n, margin_px=0)
+            if o.silhouette and o.visible / o.silhouette >= 0.1:
+                visible_members.append(n)
+        self.group_weight = self.cfg.occluder_weight if visible_members else 1.0
         self._base_sep: dict[tuple, dict] = {}
 
     def find_occluders(self) -> list[str]:
@@ -239,7 +252,7 @@ class Hider:
         def cost(m):
             return np.hypot(m[0], m[1]) / c.unit_m + abs(m[2]) / c.unit_deg
 
-        out = [(cost(m), m, None, None) for m in t_moves]
+        out = [(self.group_weight * cost(m), m, None, None) for m in t_moves]
         for occ in self.occluders[:1]:  # the main occluder only
             for om in o_moves:
                 if om == (0.0, 0.0, 0.0):
@@ -248,7 +261,7 @@ class Hider:
                 for m in t_moves:
                     tc = cost(m)
                     if tc <= 2.0:  # combined with small target moves only
-                        out.append((tc + oc, m, occ, om))
+                        out.append((self.group_weight * tc + oc, m, occ, om))
         out.sort(key=lambda x: x[0])
         return out[: c.max_candidates]
 

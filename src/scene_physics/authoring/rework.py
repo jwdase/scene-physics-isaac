@@ -145,7 +145,8 @@ def rework_scene(source: Scene, config: Config, cfg: ReworkConfig | None = None,
         az, el, d = orbit_of(scene.camera)
         c = edit["camera"]
         scene.camera = orbit_camera(c.get("azimuth", az), c.get("elevation", el), c.get("distance", d),
-                                    look_at=scene.camera.target, reference=scene.camera, name=scene.camera.name)
+                                    look_at=scene.camera.target, reference=scene.camera,
+                                    name=c.get("name", f"{scene.camera.name}_adjusted"))
     apply_edits(scene, edit)
     result = ReworkResult(scene.name, target, False, edits=edit)
     others = [o.name for o in source.dynamic_objects if o.name != target]

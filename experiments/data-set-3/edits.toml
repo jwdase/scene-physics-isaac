@@ -17,3 +17,16 @@ move = { round_coaster_stone_004 = [0.0, 0.0, 0.0, -0.0443] }
 note = "the coaster resting on the hidden block passed 12.6 mm into the candle holder (the occluder); physics shoved the holder 45 mm forward. Instead the block and its coaster move 5.7 cm back, so the coaster just touches the holder, as designed"
 move = { square_wood_block_004 = [0.0, 0.057, 0.0] }
 with = { square_wood_block_004 = ["round_coaster_stone_001"] }
+
+# ---------------------------------------------------------------- designs that cannot be hidden from p01_f03
+# At the data-set camera no physically valid arrangement hides these targets behind their design occluders
+# (searched exhaustively: placements, turns and small occluder moves). From a camera 11 cm lower (8 deg
+# elevation at 1.5 m, FOV 38.2 deg, same framing) they hide with small edits and nothing else the design
+# shows gets buried. These two scenes use that camera; drop them if a single camera matters more.
+[scene017]
+note = "the loaf (32 x 24 x 11 cm) is 63% visible in data-set-2 and no placement behind the tilted bowl hides it from p01_f03 (best: 9 px visible at 640x480). Lower camera; the loaf is then moved behind the bowl by the search"
+camera = { elevation = 8.0, distance = 1.5, name = "p01_f03_low" }
+
+[scene040]
+note = "the loaf (occluder) passed 21 mm into the vase and only that overlap hid the coaster; with the loaf at rest no placement of the vase and coaster (12 cm, 30 deg) or of the loaf (4 cm, 30 deg) hides the coaster from p01_f03. Lower camera; relaxation separates loaf and vase and the coaster is hidden with a small move"
+camera = { elevation = 8.0, distance = 1.5, name = "p01_f03_low" }
