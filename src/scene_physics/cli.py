@@ -114,6 +114,20 @@ def cmd_rework(args):
         raise SystemExit(f"{len(failed)} of {len(results)} scenes were not reworked")
 
 
+def cmd_compose(args):
+    from scene_physics.authoring import compose
+
+    cfg = _config(args)
+    failed = []
+    for spec in args.specs:
+        res = compose.run(spec, cfg, perturb=args.perturb, rtx=not args.no_render, finalize=args.finalize,
+                          overwrite=args.force)
+        if not res.ok:
+            failed.append(res.name)
+    if failed:
+        print(f"[sp] not yet passing: {', '.join(failed)}", flush=True)
+
+
 def cmd_render(args):
     from scene_physics import paths
     from scene_physics.authoring import workflow
@@ -403,6 +417,16 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--overwrite", action="store_true")
     common(s)
     s.set_defaults(func=cmd_rework, needs_kit=True)
+
+    s = sub.add_parser("compose", help="scene spec (TOML) -> placed objects, relaxed, assessed as a hidden-object "
+                                       "trial (report + pictures); --finalize writes data/<exp>/<name>/")
+    s.add_argument("specs", nargs="+", help="spec files, e.g. experiments/data-set-4/scene001.toml")
+    s.add_argument("--perturb", type=int, default=6, help="robustness rollouts from slightly perturbed rest poses")
+    s.add_argument("--finalize", action="store_true", help="finalize scenes that pass (stimulus rendered)")
+    s.add_argument("--force", action="store_true", help="finalize even if a check does not pass")
+    s.add_argument("--no-render", action="store_true", help="no RTX (ray-cast pictures only)")
+    common(s)
+    s.set_defaults(func=cmd_compose, needs_kit=True)
 
     s = sub.add_parser("render", help="render stimulus + segmentation for a scene")
     s.add_argument("scene")

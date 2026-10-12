@@ -158,3 +158,9 @@ with = { block_a = ["block_b"] }
     assert np.allclose(s["block_b"].pose[:2], s["block_a"].pose[:2], atol=1e-6)
     assert s["block_b"].pose[2] == pytest.approx(before_b[2])
     assert s["block_c"].pose[2] == pytest.approx(0.75)  # dropped 5 cm
+
+
+def test_target_outside_the_image_is_not_hidden():
+    meter = occlusion.OcclusionMeter(occlusion_scene(0.0), CAM)
+    far = meter.measure("block", margin_px=2, poses={"block": np.array([5.0, 0.3, 1.0, 0, 0, 0, 1.0])})
+    assert not far.in_frame and not far.hidden and far.silhouette == 0

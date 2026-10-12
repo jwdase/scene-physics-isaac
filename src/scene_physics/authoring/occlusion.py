@@ -110,6 +110,8 @@ class OcclusionMeter:
         p = self.poses(poses)
         pose = p[0, self.dynamic.index(name)] if name in self.dynamic else self.scene[name].pose
         y0, y1, x0, x1, inside = self._roi(name, pose, margin_px + 2)
+        if y1 <= y0 or x1 <= x0:  # entirely outside the image
+            return Occlusion(name, 0, 0, 0, margin_px, False)
         rc = self.rc
         full = (rc.rays, rc.height, rc.width)
         h, w = y1 - y0, x1 - x0
