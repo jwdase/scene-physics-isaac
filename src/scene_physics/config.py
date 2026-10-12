@@ -44,6 +44,8 @@ class PhysicsConfig:
     velocity_iterations: int = 4
     linear_damping: float = 0.0
     angular_damping: float = 0.1  # stands in for the old rolling friction so rolling objects settle
+    max_linear_velocity: float | None = None  # m/s cap (None -> PhysX default); used by relaxation
+    max_angular_velocity: float | None = None  # deg/s cap (None -> PhysX default)
     # collision geometry
     dynamic_approximation: str = "convexDecomposition"  # convexDecomposition | convexHull | sdf
     static_approximation: str = "none"  # triangle mesh

@@ -1,0 +1,15 @@
+# data-set-3: data-set-2 reworked so every target is fully hidden and every scene is a verified rest state
+# (see docs/DATA_SET_3.md). Made with `sp rework data/data-set-2/scene0* --exp data-set-3`.
+experiment = "data-set-3"
+description = "data-set-2 (70 hand-authored scenes) with the target fully hidden (2 px margin at 1280x960) and the truth a verified rest state of the model's physics; same objects, targets and target relationships, minimal edits. Camera: the data-set view lowered from 12 to 8 deg elevation and moved from 1.7 to 1.5 m (dolly zoom, the table keeps its size)."
+
+[camera]
+name = "p01_f03_low"
+width = 640
+height = 480
+fov_degree = 38.22186733605049
+eye = [0.0, -1.4854021031123557, 1.0087596514400983]
+target = [0.0, 0.0, 0.8]
+up = [0.0, 0.0, 1.0]
+# orbit around the target: azimuth_deg=0, elevation_deg=8, distance_m=1.5; FOV = dolly zoom of p01_f03
+# (34 deg at 1.7 m). Chosen by sweeping 420 eye positions over all 70 scenes: see docs/DATA_SET_3.md.

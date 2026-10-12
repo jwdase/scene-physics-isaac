@@ -82,3 +82,35 @@ def test_two_worlds_isolated_and_deterministic(isaac):
     assert np.abs(a - d).max() < 1e-5
     assert np.abs(c[1] - a[1]).max() > 0.01, "world 1 must respond to its own change"
     worlds.stop()
+
+
+def overlap_scene():
+    table = SceneObject("table", [0, 0, 0.35, 0, 0, 0, 1], box(0.5, 0.5, 0.35), dynamic=False)
+    a = SceneObject("block_a", [-0.025, 0.0, 0.72, 0, 0, 0, 1], box(0.03, 0.03, 0.02))
+    b = SceneObject("block_b", [0.025, 0.0, 0.72, 0, 0, 0, 1], box(0.03, 0.03, 0.02))  # 1 cm inside a
+    c = SceneObject("block_c", [0.25, 0.1, 0.73, 0, 0, 0, 1], box(0.02, 0.02, 0.02))  # 1 cm above the table
+    return Scene("overlap", {o.name: o for o in (table, a, b, c)}, DEFAULT_CAMERA)
+
+
+def test_relax_separates_overlaps_gently(isaac, tmp_path):
+    from scene_physics.authoring import relax
+    from scene_physics.authoring.analysis import overlaps
+    from scene_physics.config import Config
+
+    scene = overlap_scene()
+    scene.path = tmp_path / "overlap.usd"
+    cfg = relax.RelaxConfig(perturb_trials=2)
+    report = relax.relax(scene, Config(), cfg, workdir=tmp_path)
+    print("\n" + report.table())
+    final = report.final_poses()
+    motion = {o.name: o for o in report.objects}
+    # the pair is pushed apart symmetrically by about the overlap, nothing flies off
+    gap = final["block_b"][0] - final["block_a"][0]
+    assert gap == pytest.approx(0.06, abs=0.003)
+    assert motion["block_a"].total_displacement < 0.01 and motion["block_b"].total_displacement < 0.01
+    assert max(o.max_speed for o in report.objects) <= cfg.max_linear_speed * 1.05
+    assert final["block_c"][2] == pytest.approx(0.72, abs=0.002)  # lowered onto the table
+    for name, pose in final.items():
+        scene[name].pose = pose
+    assert not overlaps(scene)
+    assert report.ok, report.warnings

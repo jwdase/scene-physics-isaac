@@ -87,6 +87,33 @@ def cmd_finalize(args):
                             strict=args.strict, overwrite=args.overwrite)
 
 
+def cmd_relax(args):
+    from scene_physics import paths
+    from scene_physics.authoring import relax
+
+    path = paths.resolve_scene(args.scene, prefer="authoring")
+    cfg = relax.RelaxConfig(perturb_trials=args.perturb)
+    if args.low_gravity is not None:
+        cfg.low_gravity = args.low_gravity
+    report = relax.relax_scene(path, _config(args, path), cfg, out=args.out, in_place=args.in_place)
+    if not report.ok:
+        raise SystemExit("relaxation did not give a verified rest state (see the warnings above)")
+
+
+def cmd_rework(args):
+    from scene_physics.authoring import rework
+
+    if not args.exp:
+        raise SystemExit("sp rework needs --exp (the experiment the reworked scenes go to)")
+    cfg = _config(args)
+    results = rework.rework(args.scenes, cfg, edits_path=args.edits, render=not args.no_render, overwrite=args.overwrite)
+    failed = [r for r in results if not r.ok]
+    for r in failed:
+        print(f"[sp] needs a hand edit: {r.summary()}", flush=True)
+    if failed:
+        raise SystemExit(f"{len(failed)} of {len(results)} scenes were not reworked")
+
+
 def cmd_render(args):
     from scene_physics import paths
     from scene_physics.authoring import workflow
@@ -358,6 +385,24 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--overwrite", action="store_true")
     common(s)
     s.set_defaults(func=cmd_finalize, needs_kit=True)
+
+    s = sub.add_parser("relax", help="push overlapping objects apart under low gravity, settle and verify the rest state")
+    s.add_argument("scene")
+    s.add_argument("--out", help="write the relaxed scene to this file")
+    s.add_argument("--in-place", action="store_true", help="write the relaxed poses into the scene itself")
+    s.add_argument("--perturb", type=int, default=4, help="robustness rollouts from slightly perturbed rest poses")
+    s.add_argument("--low-gravity", type=float, help="gravity (m/s^2) while overlaps are separated")
+    common(s)
+    s.set_defaults(func=cmd_relax, needs_kit=True)
+
+    s = sub.add_parser("rework", help="finished scenes -> a new experiment: its camera, a verified rest state, "
+                                      "the target hidden with a margin")
+    s.add_argument("scenes", nargs="+")
+    s.add_argument("--edits", help="TOML of hand edits per scene (default experiments/<exp>/edits.toml)")
+    s.add_argument("--no-render", action="store_true")
+    s.add_argument("--overwrite", action="store_true")
+    common(s)
+    s.set_defaults(func=cmd_rework, needs_kit=True)
 
     s = sub.add_parser("render", help="render stimulus + segmentation for a scene")
     s.add_argument("scene")

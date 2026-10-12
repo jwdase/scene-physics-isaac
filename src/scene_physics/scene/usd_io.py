@@ -533,6 +533,12 @@ def author_object_physics(prim: Usd.Prim, dynamic: bool, physics: PhysicsConfig,
     set_physx_attr(prim, "physxRigidBody:solverVelocityIterationCount", int(physics.velocity_iterations))
     set_physx_attr(prim, "physxRigidBody:linearDamping", float(physics.linear_damping))
     set_physx_attr(prim, "physxRigidBody:angularDamping", float(physics.angular_damping))
+    for attr, value in (("physxRigidBody:maxLinearVelocity", physics.max_linear_velocity),
+                        ("physxRigidBody:maxAngularVelocity", physics.max_angular_velocity)):
+        if value is not None:
+            set_physx_attr(prim, attr, float(value))
+        elif prim.HasAttribute(attr):
+            prim.RemoveProperty(attr)
     set_physx_attr(prim, "physxRigidBody:enableCCD", bool(physics.ccd))
     if physics.disable_sleeping:
         set_physx_attr(prim, "physxRigidBody:sleepThreshold", 0.0)

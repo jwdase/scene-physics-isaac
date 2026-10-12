@@ -92,6 +92,8 @@ PHYSX_ATTR_TYPES = {
     "physxRigidBody:sleepThreshold": "Float",
     "physxRigidBody:stabilizationThreshold": "Float",
     "physxRigidBody:maxDepenetrationVelocity": "Float",
+    "physxRigidBody:maxLinearVelocity": "Float",
+    "physxRigidBody:maxAngularVelocity": "Float",
     "physxRigidBody:solverPositionIterationCount": "Int",
     "physxRigidBody:solverVelocityIterationCount": "Int",
     "physxRigidBody:enableCCD": "Bool",
