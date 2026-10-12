@@ -63,6 +63,9 @@ class RelaxConfig:
     perturb_rotation_deg: float = 0.5
     perturb_tolerance: float = 0.005  # m an object may end up from its rest pose after a perturbation
     seed: int = 0
+    polish_rounds: int = 4  # fresh-start rollouts until the stored poses are a fixed point (see polish)
+    polish_tolerance: float = 0.0005  # m (fresh starts shift some resting contacts by ~0.5 mm anyway)
+    polish_tolerance_deg: float = 0.25
 
 
 @dataclass
@@ -159,6 +162,49 @@ def _set_gravity(g: float) -> None:
     SimulationManager.get_physics_simulation_view().set_gravity([0.0, 0.0, -float(g)])
 
 
+def fresh_rollout(scene: Scene, poses: dict[str, np.ndarray], config: Config, seconds: float, workdir: Path) -> dict:
+    """Simulate ``seconds`` from ``poses`` in a freshly opened copy of the scene (no contact history),
+    which is how every inference rollout starts. Returns the end poses."""
+    from scene_physics.scene.usd_io import write_scene
+
+    tmp = _tmp_path(workdir, scene.name, "fresh")
+    copy = _with_poses(scene, poses)
+    write_scene(copy, tmp, config.physics)
+    sim = _simulate_file(tmp, config.physics)
+    sim.reset()
+    sim.step(int(round(seconds / config.physics.dt)))
+    end = dict(zip(sim.names, sim.poses()))
+    _close(sim, tmp)
+    return end
+
+
+def polish(scene: Scene, poses: dict[str, np.ndarray], config: Config, cfg: RelaxConfig, workdir: Path,
+           log=None) -> tuple[dict[str, np.ndarray], float, float]:
+    """Make ``poses`` (nearly) a fixed point of a fresh-start rollout.
+
+    A rest state reached in a running simulation can still move by a millimetre or two when a new
+    simulation starts from it, because contacts are re-established from scratch; inference rollouts always
+    start that way. Adopt the end of a fresh rollout while that helps; some contacts (bowls and loaves on
+    the table) shift by ~0.5 mm on every fresh start, so the iterate whose fresh rollout moves least is kept.
+    Returns the poses and that rollout's largest displacement (m) and rotation (deg).
+    """
+    log = log or _print
+    names = list(poses)
+    best = None
+    for k in range(max(1, cfg.polish_rounds) + 1):
+        end = fresh_rollout(scene, poses, config, cfg.verify_seconds, workdir)
+        d, r = _motion(np.stack([poses[n] for n in names]), np.stack([end[n] for n in names]))
+        score = d.max() / cfg.polish_tolerance + r.max() / cfg.polish_tolerance_deg
+        if best is None or score < best[0]:
+            best = (score, poses, float(d.max()), float(r.max()))
+        if d.max() <= cfg.polish_tolerance and r.max() <= cfg.polish_tolerance_deg:
+            break
+        if k < cfg.polish_rounds:
+            log(f"[relax] {scene.name}: a fresh start moves {d.max() * 1e3:.2f} mm / {r.max():.2f} deg; trying its rest")
+            poses = end
+    return best[1], best[2], best[3]
+
+
 def relax(scene: Scene, config: Config, cfg: RelaxConfig | None = None, *, workdir: str | Path | None = None,
           log=None) -> RelaxReport:
     """Relax ``scene`` (its current poses) under ``config.physics``; the scene object is not changed.
@@ -243,6 +289,11 @@ def relax(scene: Scene, config: Config, cfg: RelaxConfig | None = None, *, workd
         p_disp = np.maximum(p_disp, geometry.position_error(end, final))
     _close(sim, tmp)
 
+    if cfg.polish_rounds:
+        polished, _, _ = polish(scene, dict(zip(names, final)), config, cfg, workdir, log)
+        final = np.stack([polished[n] for n in names])
+        v_disp, v_rot = _motion(final, np.stack([fresh_rollout(scene, polished, config, cfg.verify_seconds, workdir)[n]
+                                                 for n in names]))  # the verify numbers: a fresh start, as in inference
     r_disp, r_rot = _motion(authored, relaxed)
     s_disp, s_rot = _motion(relaxed, final)
     t_disp, t_rot = _motion(authored, final)

@@ -264,7 +264,9 @@ def render_scene(scene_path: str | Path, config: Config, *, out_dir: str | Path 
         scene.assign_segmentation_ids()
     out_dir = Path(out_dir) if out_dir else scene_path.parent / "render"
     out_dir.mkdir(parents=True, exist_ok=True)
-    _, renderer = _render_setup(scene_path, scene, config, scale=config.render.scale)
+    stage, renderer = _render_setup(scene_path, scene, config, scale=config.render.scale)
+    if not config.render.hidden_shadows:
+        _no_secondary_rays(stage, [o.name for o in scene.with_role("hidden")])
     t0 = time.time()
     frame = renderer.capture(quality)
     labels = scene.segmentation_labels()
@@ -283,6 +285,22 @@ def render_scene(scene_path: str | Path, config: Config, *, out_dir: str | Path 
     renderer.destroy()
     _log(f"rendered {scene_path.name} ({frame.rgb.shape[1]}x{frame.rgb.shape[0]}, {quality}) in {time.time() - t0:.1f} s -> {out_dir}")
     return out_dir
+
+
+def _no_secondary_rays(stage, names: list[str]) -> None:
+    """Render-time only (session layer): these objects cast no shadows and appear in no reflections."""
+    from pxr import Sdf, Usd, UsdGeom
+
+    from scene_physics.scene import schema as S
+    from scene_physics.scene.model import safe_prim_name
+
+    with Usd.EditContext(stage, stage.GetSessionLayer()):
+        for name in names:
+            root = stage.GetPrimAtPath(f"{S.OBJECTS}/{safe_prim_name(name)}")
+            for prim in Usd.PrimRange(root):
+                if prim.IsA(UsdGeom.Gprim):
+                    prim.CreateAttribute("primvars:invisibleToSecondaryRays", Sdf.ValueTypeNames.Bool).Set(True)
+                    prim.CreateAttribute("primvars:doNotCastShadows", Sdf.ValueTypeNames.Bool).Set(True)
 
 
 def finalize_scene(scene_path: str | Path, config: Config, *, name: str | None = None, experiment: str | None = None,

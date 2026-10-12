@@ -86,6 +86,9 @@ class RenderConfig:
     scale: float = 2.0  # stimulus resolution multiplier on the camera resolution (1280x960 for 640x480)
     denoise: bool = True
     environment: str = "studio"  # look layer applied at render time (assets/environments/<name>.usda)
+    # False: hidden objects cast no shadows and show in no reflections (render-time only), so an occluded
+    # target leaves no trace in the stimulus; True: physically correct lighting
+    hidden_shadows: bool = True
     gif_fps: int = 30
     gif_frames: int = 90
 

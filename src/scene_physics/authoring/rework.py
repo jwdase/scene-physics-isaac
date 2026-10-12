@@ -306,6 +306,8 @@ def rework(sources: list[str], config: Config, cfg: ReworkConfig | None = None, 
         auth = workflow.authoring_path(exp, src.name)
         auth = auth.with_name(f"{auth.stem}.{time.strftime('%H%M%S')}.usd") if auth.exists() else auth
         write_scene(scene, auth, config.physics)
+        # the poses are already a verified rest state: store them as they are (a further settle can stop a
+        # creeping object at a slightly different, still creeping, pose)
         workflow.finalize_scene(auth, config, name=src.name, experiment=exp, target=res.target, render=render,
-                                overwrite=True)
+                                settle=False, overwrite=True)
     return results

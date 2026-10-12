@@ -16,7 +16,83 @@ physical relationship between the target and the objects around it (a bowl resti
 a loaf leaning on it, a vase tilted onto the hidden coaster, ...). Edits are as small as the constraints
 allow; the table below lists every change.
 
-<!-- RESULTS -->
+## Scenes
+
+Target visible: pixels of the target in the 1280×960 data-set-2 stimulus (ray caster). Changes: objects that moved more than 1 cm or 5° from their data-set-2 pose (most of it is physics settling the authored poses). Without the target: simulating the data-set-3 scene with the target removed, the object that moves most (the physical evidence of the hidden object; 'nothing' = a pure occlusion trial).
+
+| scene | target | occluder | relationship (data-set-2) | target visible in data-set-2 | changes | without the target | edit |
+|---|---|---|---|---|---|---|---|
+| 001 | block | loaf | bowl on block | 0 | loaf 3.2 cm, block (target) 1.7 cm | bowl 1.9 cm | hiding edit |
+| 002 | block | loaf | bowl touches block | 1231 | block (target) 10.8 cm, bowl 10.8 cm | bowl 1.0 cm | hiding edit |
+| 003 | mug | coffee maker | — | 170 | mug (target) 1.0 cm | nothing | hiding edit |
+| 004 | block | grinder | — | 0 | banana 0.3 cm / 6° | banana 2.0 cm | relaxed |
+| 005 | block | jug | bowl touches block | 0 | settling only (< 1 cm, 5°) | bowl 2.9 cm | relaxed |
+| 006 | block | jug | bowl on block | 0 | settling only (< 1 cm, 5°) | bowl 4.7 cm | relaxed |
+| 007 | block | jug | bowl on block | 0 | settling only (< 1 cm, 5°) | bowl 4.7 cm | hiding edit |
+| 008 | block | bowl, loaf | bowl on block | 49 | block (target) 3.2 cm | bowl 4.7 cm | hiding edit |
+| 009 | block | bowl, loaf | bowl on block | 0 | settling only (< 1 cm, 5°) | bowl 4.7 cm | relaxed |
+| 010 | banana | loaf | — | 0 | bowl 1.2 cm | loaf 3.9 cm | relaxed |
+| 011 | banana | loaf | — | 0 | bowl 1.2 cm | loaf 3.9 cm | relaxed |
+| 012 | banana | jug | — | 561 | banana (target) 7.0 cm, loaf 1.2 cm, bowl 1.2 cm | loaf 2.1 cm | hiding edit |
+| 013 | block | loaf | loaf touches block | 0 | settling only (< 1 cm, 5°) | loaf 6.2 cm | relaxed |
+| 014 | block | loaf | loaf touches block | 0 | bowl 1.2 cm | loaf 6.3 cm | relaxed |
+| 015 | block | jug | — | 0 | bowl 1.2 cm | loaf 8.0 cm | relaxed |
+| 016 | block | jug | — | 0 | bowl 1.2 cm | loaf 8.0 cm | relaxed |
+| 017 | loaf | bowl | — | 10476 | loaf (target) 16.2 cm / 45° | nothing | hand edit + camera, hiding edit |
+| 018 | block | bowl | bowl touches block | 0 | settling only (< 1 cm, 5°) | bowl 6.3 cm | relaxed |
+| 019 | block | grinder | loaf on block | 0 | settling only (< 1 cm, 5°) | loaf 3.1 cm | relaxed |
+| 020 | block | shark | phone on block | 0 | shark 1.1 cm | phone 3.1 cm | hiding edit |
+| 021 | block | phone, shark | — | 74 | block (target) 1.9 cm | phone 1.7 cm | hiding edit |
+| 022 | block | phone, shark | — | 13 | block (target) 1.1 cm | phone 1.7 cm | hiding edit |
+| 023 | banana | grinder | — | 0 | banana (target) 0.7 cm / 9°, phone 0.7 cm / 7° | phone 2.6 cm | relaxed |
+| 024 | block | bowl | bowl on block | 0 | settling only (< 1 cm, 5°) | bowl 1.9 cm | relaxed |
+| 025 | banana | grinder | — | 274 | phone 7.3 cm / 45°, glass 5.8 cm, banana (target) 1.5 cm / 46° | phone 2.6 cm | hand edit, hiding edit |
+| 026 | block | mug | — | 0 | settling only (< 1 cm, 5°) | loaf 1.1 cm | hiding edit |
+| 027 | block | grinder, stone coaster | stone coaster on block | 0 | settling only (< 1 cm, 5°) | stone coaster 8.6 cm | relaxed |
+| 028 | block | stone coaster | stone coaster touches block | 0 | settling only (< 1 cm, 5°) | stone coaster 3.5 cm | relaxed |
+| 029 | block | grinder | loaf touches block | 0 | settling only (< 1 cm, 5°) | loaf 1.7 cm | relaxed |
+| 030 | star block | jug | — | 236 | star block (target) 7.0 cm | nothing | hiding edit |
+| 031 | cup | bowl | phone on cup | 0 | settling only (< 1 cm, 5°) | phone 9.5 cm | relaxed |
+| 032 | block | jug | wineglass on block | 0 | settling only (< 1 cm, 5°) | wineglass 5.8 cm | relaxed |
+| 033 | block | grinder | loaf on block | 0 | settling only (< 1 cm, 5°) | loaf 3.1 cm | relaxed |
+| 034 | block | mug | — | 0 | settling only (< 1 cm, 5°) | loaf 1.1 cm | hiding edit |
+| 035 | block | vase | loaf touches block | 233 | settling only (< 1 cm, 5°) | loaf 6.9 cm | hiding edit |
+| 036 | block | vase | loaf touches block | 233 | settling only (< 1 cm, 5°) | loaf 6.9 cm | hiding edit |
+| 037 | block | vase | loaf touches block | 1 | vase 1.0 cm | loaf 7.0 cm | hiding edit |
+| 038 | block | vase | loaf touches block | 2 | settling only (< 1 cm, 5°) | loaf 7.0 cm | relaxed |
+| 039 | block | mug | loaf touches block | 95 | block (target) 9.4 cm / 45°, loaf 4.1 cm / 44° | loaf 7.3 cm | hiding edit |
+| 040 | stone coaster | loaf | stone coaster touches vase | 12 | stone coaster (target) 1.6 cm, loaf 1.2 cm / 7°, vase 1.1 cm | vase 0.9 cm | hand edit + camera, hiding edit |
+| 041 | stone coaster | block | stone coaster touches vase | 0 | stone coaster (target) 2.4 cm, loaf 1.1 cm / 10° | vase 0.7 cm | hiding edit |
+| 042 | stone coaster | mug | vase on stone coaster | 0 | settling only (< 1 cm, 5°) | vase 1.3 cm | relaxed |
+| 043 | stone coaster | mug | vase on stone coaster | 0 | loaf 1.1 cm / 10° | vase 1.6 cm | relaxed |
+| 044 | stone coaster | mug | vase on stone coaster | 0 | loaf 1.1 cm / 10° | vase 1.6 cm | relaxed |
+| 045 | stone coaster | loaf | vase on stone coaster | 0 | stone coaster (target) 2.6 cm, loaf 1.1 cm / 10°, vase 0.2 cm / 11° | vase 1.5 cm | hiding edit |
+| 046 | stone coaster | mug | vase on stone coaster | 0 | loaf 1.1 cm / 10° | vase 4.2 cm | relaxed |
+| 047 | stone coaster | mug | vase on stone coaster | 0 | loaf 1.1 cm / 10° | vase 4.2 cm | relaxed |
+| 048 | stone coaster | block, vase | vase on stone coaster | 63 | settling only (< 1 cm, 5°) | vase 3.8 cm | hiding edit |
+| 049 | block | jug | wineglass on block | 0 | settling only (< 1 cm, 5°) | wineglass 3.1 cm | relaxed |
+| 050 | block | small bowl | — | 0 | settling only (< 1 cm, 5°) | nothing | relaxed |
+| 051 | long block | small bowl | — | 0 | orange 0.4 cm / 18° | nothing | relaxed |
+| 052 | long block | small bowl | — | 0 | bung 0.8 cm / 11°, orange 0.4 cm / 18° | nothing | relaxed |
+| 053 | block | mug | bowl on block | 0 | loaf 0.9 cm / 10° | bowl 1.4 cm | relaxed |
+| 054 | block | bowl | bowl on block | 0 | loaf 0.9 cm / 10° | bowl 1.9 cm | relaxed |
+| 055 | banana | jug | loaf touches banana | 0 | bowl 1.4 cm | loaf 2.8 cm | relaxed |
+| 056 | block | jug | — | 0 | bowl 1.4 cm | nothing | hiding edit |
+| 057 | block | bowl, loaf | bowl on block | 0 | loaf 1.2 cm / 5° | bowl 3.1 cm | hiding edit |
+| 058 | block | grinder | phone on block | 0 | settling only (< 1 cm, 5°) | phone 3.1 cm | relaxed |
+| 059 | block | jug | loaf on block | 0 | settling only (< 1 cm, 5°) | loaf 3.1 cm | relaxed |
+| 060 | block | mug | — | 0 | settling only (< 1 cm, 5°) | loaf 1.1 cm | relaxed |
+| 061 | block | mug | — | 0 | stone coaster 4.4 cm | loaf 1.1 cm | hand edit |
+| 062 | block | candle holder | stone coaster on block | 0 | block (target) 5.7 cm, stone coaster 5.7 cm | stone coaster 3.1 cm | hand edit |
+| 063 | block | shark, stone coaster | stone coaster on block | 0 | settling only (< 1 cm, 5°) | stone coaster 2.7 cm | relaxed |
+| 064 | block | shark, stone coaster | stone coaster on block | 0 | settling only (< 1 cm, 5°) | stone coaster 2.7 cm | relaxed |
+| 065 | block | mug | — | 0 | banana 0.3 cm / 6° | banana 2.0 cm | relaxed |
+| 066 | block | mug | — | 0 | banana 0.4 cm / 6° | banana 2.0 cm | relaxed |
+| 067 | cup | bowl | wood coaster on cup | 0 | settling only (< 1 cm, 5°) | wood coaster 9.5 cm | relaxed |
+| 068 | cup | jug | wood coaster on cup | 12 | settling only (< 1 cm, 5°) | wood coaster 9.5 cm | hiding edit |
+| 069 | cup | jug | — | 39 | jug 3.0 cm, cup (target) 2.0 cm | nothing | hiding edit |
+| 070 | block | jug | wineglass on block | 0 | settling only (< 1 cm, 5°) | wineglass 3.1 cm | relaxed |
+
 
 ## Camera exploration
 
@@ -87,9 +163,10 @@ scene:
    supports. Relaxation instead separates overlaps under almost no gravity (0.3 m/s²) with PhysX's
    depenetration speed capped at 5 cm/s, heavy damping and hard speed caps (10 cm/s, 45°/s), ramps
    gravity to 9.81 m/s² over 2 s, and only then settles under the unmodified model physics. The result
-   is verified: a 2.5 s rollout (one inference rollout) from the stored poses must move no object more
-   than 1 mm / 0.5°; four rollouts from randomly nudged poses (±1 mm, 0.5°) test that the rest is
-   robust. Any object that moves more than 3 cm or 30° on the way is reported (explosion guard): in
+   is verified the way inference uses it: a 2.5 s rollout (one inference rollout) started fresh from the
+   stored poses must move no object more than 1 mm / 0.5° (a fresh start re-establishes the contacts, which
+   can shift a resting object by a millimetre: such states are polished by adopting the fresh rollout's
+   rest); four rollouts from randomly nudged poses (±1 mm, 0.5°) test that the rest is robust. Any object that moves more than 3 cm or 30° on the way is reported (explosion guard): in
    data-set-2 the only such objects were authoring errors (a floating glass, a floating coaster, a coaster
    inside the candle holder), fixed by hand.
 2. **Check** the scene against its data-set-2 design:
@@ -120,8 +197,16 @@ stimulus, segmentation, depth and target silhouette are rendered.
 
 ## Checks on the finished dataset
 
-<!-- CHECKS -->
+* **Target hidden**: the target has 0 pixels in the path-traced segmentation of every stimulus, and the ray caster finds no visible pixel even with the 2-pixel margin in all 70 scenes (66 also with a 4-pixel margin).
+* **At rest**: a 2.5 s rollout (one inference rollout) from the stored truth moves no object more than 0.72 mm (median 0.010 mm); in data-set-2 the same rollout moved objects by up to 58 mm (median 6.0 mm).
+* **Physical evidence kept**: removing the target makes another object move (≥ 5 mm) in 62 scenes (data-set-2: 61); where both datasets show evidence, it is the same object in 61 of 61. In the other scenes the target touches nothing: they are pure occlusion trials, as in data-set-2.
+* `sp validate data/data-set-3/scene0*`: all scenes valid (roles, priors, segmentation ids).
+* **No trace of the target**: each stimulus was rendered again with the target removed. Two renders of the same scene differ by up to 11.2/255 (path-tracing noise, 9×9 local mean); without the target, 55 of 70 stimuli stay within twice that; in 003, 005, 013, 016, 017, 024, 025, 028, 039, 042, 043, 044, 051, 053, 055 the target's shadow changes the image (see Caveats).
 
 ## Caveats
 
-<!-- CAVEATS -->
+* **Shadows of the hidden target** (15 scenes): the target is fully occluded, but it still blocks light, and in these scenes its soft shadow falls where the camera sees it (mostly from the rim light behind the table: switching that light off halves the effect). Rendering the hidden object without shadows and reflections (`[render] hidden_shadows = false` in `experiments/data-set-3.toml`, then `sp render` each scene) removes every trace (difference to the scene without the target within path-tracing noise), at the price of lighting that is subtly non-physical. The stimuli are rendered with physical shadows; which one the experiment should use is a design decision.
+* **Camera exceptions**: scene017, scene040 use the data-set camera lowered by 11 cm (8° elevation at 1.5 m, FOV 38.2°, same framing): from p01_f03 no physically valid arrangement hides their targets behind their design occluders. Drop them if a single camera matters more.
+* **Fragile rests**: these scenes are at rest, but a ±1 mm / 0.5° nudge of every object moves something more than 5 mm (a cue balanced on the hidden object): 007 (block moves 6.7 mm); 018 (block moves 6.2 mm); 031 (phone moves 31.4 mm); 045 (stone coaster moves 5.2 mm).
+* **Observed but not visible**, exactly as in data-set-2: the banana in 024, the key in 032 and 070, the phone and the can in 067, the phone in 068 are 0% visible but observed, so the model is given their poses. Mark them hidden with `sp roles <scene> --set NAME=hidden` if they should be inferred too.
+* **Physics config**: data-set-3 uses the box table and 32/8 iterations (`experiments/data-set-3.toml`); data-set keeps its own physics. Adopting the same settings for data-set would mean re-settling its scenes (`sp rework` / `sp finalize`).
