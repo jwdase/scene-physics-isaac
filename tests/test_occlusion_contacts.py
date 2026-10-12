@@ -137,3 +137,24 @@ def test_connected_group_takes_leaning_and_resting_objects_along():
     s = stack_scene()  # b rests on a; d touches a; c floats
     rels = contacts.relations(contacts.ContactAnalyzer(s, samples=3000, device="cpu").contacts())
     assert hide.connected_group(s, rels, "block_a") == ["block_a", "block_b", "block_d"]
+
+
+def test_hand_edits_move_groups_and_drop(tmp_path):
+    from scene_physics.authoring import rework
+
+    path = tmp_path / "edits.toml"
+    path.write_text("""
+[stack]
+note = "test"
+move = { block_a = [0.1, 0.0, 90.0], block_c = [0.0, 0.0, 0.0, -0.05] }
+with = { block_a = ["block_b"] }
+""")
+    edit = rework.load_edits(path)["stack"]
+    s = stack_scene()
+    before_b = s["block_b"].pose.copy()
+    rework.apply_edits(s, edit)
+    # a and b turn 90 deg about a's centre and shift 10 cm together: b (on top of a) stays on top of it
+    assert np.allclose(s["block_a"].pose[:3], [0.1, 0.0, 0.72], atol=1e-6)
+    assert np.allclose(s["block_b"].pose[:2], s["block_a"].pose[:2], atol=1e-6)
+    assert s["block_b"].pose[2] == pytest.approx(before_b[2])
+    assert s["block_c"].pose[2] == pytest.approx(0.75)  # dropped 5 cm
