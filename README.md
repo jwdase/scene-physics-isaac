@@ -85,6 +85,13 @@ Other commands: `sp info <scene> [--priors] [--json out.json]`, `sp validate`, `
 (fix roles / the target in place; priors follow), `sp migrate <old scene folders>`.
 Scenes can be named as paths or as `<experiment>/<scene>`.
 
+**Fixing scenes that are not at rest or whose target shows.** `sp relax <scene> --in-place` pushes
+overlapping objects apart under almost no gravity, ramps gravity up, settles under the model's physics and
+verifies the rest state (no explosions: speeds are capped). `sp rework <scenes> --exp <new-exp>` turns
+finished scenes into a new experiment: relaxed, the target hidden with a margin by the smallest edit that
+keeps the scene's contacts and occluders, hand edits from `experiments/<new-exp>/edits.toml`. This is how
+data-set-3 was made from data-set-2: see [`docs/DATA_SET_3.md`](docs/DATA_SET_3.md).
+
 ## The scene file
 
 One USD file per scene; open it in Isaac Sim and press Play and it simulates. Everything the old

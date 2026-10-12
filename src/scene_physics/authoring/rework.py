@@ -52,6 +52,8 @@ class ReworkConfig:
     visible_min: float = 0.10  # objects at least this visible in the source must stay visible:
     cue_visibility_keep: float = 0.75  # ... objects touching the target keep 75% of their visible fraction
     other_visibility_keep: float = 0.5  # ... the others keep half
+    resettle_m: float = 0.015  # after an edit, visible objects end within this of where the edit put them
+    resettle_deg: float = 8.0
 
 
 @dataclass
@@ -167,7 +169,7 @@ def rework_scene(source: Scene, config: Config, cfg: ReworkConfig | None = None,
             floors[n] = v0 * (cfg.cue_visibility_keep if cue else cfg.other_visibility_keep)
     result.visibility_floor = floors
     failed_edits: list = []  # edits that did not survive physics (excluded from later searches)
-    before_edit = last_edit = pre_eval = None
+    before_edit = last_edit = pre_eval = edited = None
     for k in range(cfg.max_rounds):
         rep = relax.relax(scene, config, cfg.relax, workdir=workdir, log=log)
         for name, pose in rep.final_poses().items():
@@ -191,13 +193,28 @@ def rework_scene(source: Scene, config: Config, cfg: ReworkConfig | None = None,
         hard = [w for w in rep.warnings if not w.startswith("perturb:")]
         if hard and all(w.startswith("verify:") for w in hard) and k < cfg.max_rounds - 1:
             continue  # still creeping: relax again from where it got to
-        if before_edit is not None and (hard or lost or gained or buried):
+        resettled = []
+        if edited is not None:
+            # a visible object (above all a cue resting on the target) must stay where the edit put it: if it
+            # re-settles differently, the edit changed how the scene looks beyond the edit itself
+            for n in floors:
+                d = float(geometry.position_error(scene[n].pose, edited[n]))
+                r = float(np.degrees(geometry.rotation_angle(scene[n].pose[3:], edited[n][3:])))
+                if d > cfg.resettle_m or r > cfg.resettle_deg:
+                    resettled.append(f"{n} re-settled {d * 1e3:.0f} mm / {r:.0f} deg")
+            rnd.buried = rnd.buried + resettled
+        if before_edit is not None and (hard or lost or gained or buried or resettled):
             # the last edit did not survive physics: undo it, and search again without it
             failed_edits.append(last_edit)
+            if resettled and last_edit is not None and last_edit[1] == (target,):
+                # moving the target alone lets what rests on it re-settle: only moves that take it along remain
+                failed_edits.append((None, (target,), None, None))
             for name, pose in before_edit.items():
                 scene[name].pose = pose
             occ, behind, buried, lost, gained = pre_eval
-            rnd.hide = f"edit {last_edit} reverted (physics: {'; '.join(hard) or 'contacts/visibility changed'})"
+            edited = None
+            why = "; ".join(hard + resettled) or "contacts/visibility changed"
+            rnd.hide = f"edit {last_edit} reverted (physics: {why})"
             log(f"[rework] {scene.name}: {rnd.hide}")
         else:
             if hard or (cfg.require_robust and not rep.robust):
@@ -231,6 +248,7 @@ def rework_scene(source: Scene, config: Config, cfg: ReworkConfig | None = None,
         last_edit, pre_eval = h.edit, (occ, behind, buried, lost, gained)
         for name, pose in h.poses.items():
             scene[name].pose = pose
+        edited = {o.name: o.pose.copy() for o in scene.dynamic_objects}
     else:
         result.reason = f"not solved in {cfg.max_rounds} rounds"
     for o in scene.dynamic_objects:

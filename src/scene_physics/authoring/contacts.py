@@ -103,8 +103,22 @@ class ContactAnalyzer:
                   device=self.device)
         return d.numpy(), world, Rotation.from_quat(pb[3:]).apply(n.numpy())
 
-    def separation(self, a: str, b: str, poses: dict[str, np.ndarray] | None = None) -> float:
-        """Smallest signed distance between the surfaces of ``a`` and ``b`` (negative = overlap)."""
+    def _aabb(self, name: str, poses) -> tuple[np.ndarray, np.ndarray]:
+        lo, hi = self.scene[name].mesh.aabb
+        corners = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])])
+        w = geometry.transform_points(self._pose(name, poses), corners)
+        return w.min(axis=0), w.max(axis=0)
+
+    def separation(self, a: str, b: str, poses: dict[str, np.ndarray] | None = None, *, exact_within: float = 0.02) -> float:
+        """Smallest signed distance between the surfaces of ``a`` and ``b`` (negative = overlap).
+
+        Pairs whose bounding boxes are more than ``exact_within`` apart are not queried: the gap between the
+        boxes (a lower bound of the separation) is returned instead.
+        """
+        (alo, ahi), (blo, bhi) = self._aabb(a, poses), self._aabb(b, poses)
+        gap = float(np.linalg.norm(np.maximum(0.0, np.maximum(alo - bhi, blo - ahi))))
+        if gap > exact_within:
+            return gap
         d, _, _ = self.distances(a, b, poses)
         sep = float(d.min())
         if self.scene[b].dynamic or not self.scene[a].dynamic:

@@ -509,7 +509,9 @@ def main(argv: list[str] | None = None) -> None:
             # and must load them first. (`sp open` boots the full editor experience itself.)
             from scene_physics.isaac import app
 
-            app.launch(headless=not getattr(args, "gui", False), rendering=getattr(args, "rtx", True))
+            # commands run with --no-render only simulate: no RTX (the model's own renderer is Warp)
+            rendering = getattr(args, "rtx", True) and not getattr(args, "no_render", False)
+            app.launch(headless=not getattr(args, "gui", False), rendering=rendering)
         args.func(args)
     except (FileNotFoundError, FileExistsError, KeyError, ValueError) as exc:
         print(f"[sp] error: {exc}", file=sys.stderr, flush=True)

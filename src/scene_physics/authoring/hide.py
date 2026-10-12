@@ -47,7 +47,7 @@ class HideConfig:
     unit_deg: float = 10.0
     max_penetration: float = 0.0005  # m of new overlap tolerated (sampling noise)
     contact_tol: float = 0.002
-    max_candidates: int = 20000
+    max_candidates: int = 300000  # effectively all: the search stops at the first that passes
     prefilter: bool = True  # reject candidates at half resolution first (4x cheaper)
     table_margin: float = 0.02  # moved objects keep their centre this far inside the table top
     min_design_coverage: float = 0.5  # the design's occluders must cover at least this much of the target
@@ -76,7 +76,7 @@ class HideResult:
     margin: int = -1
     visible: int = -1
     reason: str = ""
-    edit: tuple | None = None  # (target move, occluder, occluder move): pass back as `exclude` if it fails
+    edit: tuple | None = None  # (target move, members, occluder, occluder move): `exclude` it if it fails
 
     def describe(self) -> str:
         if not self.found:
@@ -241,38 +241,43 @@ class Hider:
 
     # ------------------------------------------------------------------ search
     def candidates(self):
+        """``(cost, move, members, occluder, occluder_move)`` cheapest first. ``members`` move rigidly with
+        the target: the target alone (what rests on it stays and re-settles; physics checks the support
+        afterwards) or its whole connected group (weighted by ``group_weight`` when it holds visible
+        objects). Translations are capped by their length, not per axis."""
         c = self.cfg
         shifts = _grid(c.max_shift, c.shift_step)
         yaws = _grid(c.max_yaw_deg, c.yaw_step_deg) if c.yaw_step_deg > 0 else np.zeros(1)
-        t_moves = [(dx, dy, yw) for dx in shifts for dy in shifts for yw in yaws]
+        t_moves = [(dx, dy, yw) for dx in shifts for dy in shifts for yw in yaws if np.hypot(dx, dy) <= c.max_shift + 1e-9]
         o_shifts = _grid(c.occluder_max_shift, c.occluder_step)
         o_yaws = _grid(c.occluder_max_yaw_deg, c.yaw_step_deg) if c.yaw_step_deg > 0 else np.zeros(1)
-        o_moves = [(dx, dy, yw) for dx in o_shifts for dy in o_shifts for yw in o_yaws]
+        o_moves = [(dx, dy, yw) for dx in o_shifts for dy in o_shifts for yw in o_yaws
+                   if np.hypot(dx, dy) <= c.occluder_max_shift + 1e-9 and (dx, dy, yw) != (0.0, 0.0, 0.0)]
 
         def cost(m):
             return np.hypot(m[0], m[1]) / c.unit_m + abs(m[2]) / c.unit_deg
 
-        out = [(self.group_weight * cost(m), m, None, None) for m in t_moves]
-        for occ in self.occluders[:1]:  # the main occluder only
-            for om in o_moves:
-                if om == (0.0, 0.0, 0.0):
-                    continue
-                oc = c.occluder_weight * cost(om)
-                for m in t_moves:
-                    tc = cost(m)
-                    if tc <= 2.0:  # combined with small target moves only
-                        out.append((self.group_weight * tc + oc, m, occ, om))
+        variants = [((self.target,), 1.0)]
+        if len(self.group) > 1:
+            variants.append((tuple(self.group), self.group_weight))
+        out = []
+        for members, weight in variants:
+            out += [(weight * cost(m), m, members, None, None) for m in t_moves]
+            for occ in self.occluders[:1]:  # the main occluder only
+                for om in o_moves:
+                    oc = c.occluder_weight * cost(om)
+                    out += [(weight * cost(m) + oc, m, members, occ, om) for m in t_moves if cost(m) <= 2.0]
         out.sort(key=lambda x: x[0])
         return out[: c.max_candidates]
 
-    def apply(self, move, occ, omove) -> tuple[dict[str, np.ndarray], list[str]]:
+    def apply(self, move, members, occ, omove) -> tuple[dict[str, np.ndarray], list[str]]:
         pivot = self.scene[self.target].world_points.mean(axis=0)
         pivot[2] = 0.0
-        poses = move_poses(self.scene, self.group, *move, pivot)
+        poses = move_poses(self.scene, list(members), *move, pivot)
         dz = self._support_shift(pivot[:2], pivot[:2] + np.asarray(move[:2]))
-        for n in self.group:
+        for n in members:
             poses[n][2] += dz
-        moved = list(self.group)
+        moved = list(members)
         if occ is not None:
             opiv = self.scene[occ].world_points.mean(axis=0)
             opiv[2] = 0.0
@@ -282,10 +287,16 @@ class Hider:
         return poses, moved
 
     @staticmethod
-    def _near(move, occ, omove, failed) -> bool:
-        """Close to an edit that already failed under physics (within 1 cm / 10 deg)."""
-        for fm, focc, fom in failed:
-            if np.hypot(move[0] - fm[0], move[1] - fm[1]) <= 0.0101 and abs(move[2] - fm[2]) <= 10.01 and occ == focc:
+    def _near(move, members, occ, omove, failed) -> bool:
+        """Close to an edit that already failed under physics (same objects, within 1 cm / 10 deg)."""
+        for fm, fmembers, focc, fom in failed:
+            if fm is None:  # a whole kind of edit failed (e.g. moving the target without what rests on it)
+                if fmembers == members:
+                    return True
+                continue
+            if fmembers != members or occ != focc:
+                continue
+            if np.hypot(move[0] - fm[0], move[1] - fm[1]) <= 0.0101 and abs(move[2] - fm[2]) <= 10.01:
                 if occ is None or (np.hypot(omove[0] - fom[0], omove[1] - fom[1]) <= 0.0101 and abs(omove[2] - fom[2]) <= 10.01):
                     return True
         return False
@@ -298,11 +309,11 @@ class Hider:
         tried = 0
         best_margin = None
         x0, x1, y0, y1 = self.table
-        for cost, move, occ, omove in self.candidates():
-            if exclude and self._near(move, occ, omove, exclude):
+        for cost, move, members, occ, omove in self.candidates():
+            if exclude and self._near(move, members, occ, omove, exclude):
                 continue
             tried += 1
-            poses, moved = self.apply(move, occ, omove)
+            poses, moved = self.apply(move, members, occ, omove)
             if any(not (x0 <= p[0] <= x1 and y0 <= p[1] <= y1) for p in poses.values()):
                 continue
             if self.coarse is not None:
@@ -321,11 +332,12 @@ class Hider:
                 continue
             if not self.contacts_kept(moved, poses):
                 continue
-            moves = {n: tuple(float(v) for v in move) for n in self.group}
+            moves = {n: tuple(float(v) for v in move) for n in members}
             if occ is not None:
                 moves[occ] = tuple(float(v) for v in omove)
             res = HideResult(True, moves, poses, float(cost), tried, o.margin, o.visible)
-            res.edit = (tuple(float(v) for v in move), occ, None if omove is None else tuple(float(v) for v in omove))
+            res.edit = (tuple(float(v) for v in move), tuple(members), occ,
+                        None if omove is None else tuple(float(v) for v in omove))
             return res
         return HideResult(False, tried=tried, margin=best_margin if best_margin is not None else -1,
                           reason="no candidate both hides the target and keeps its contacts")
