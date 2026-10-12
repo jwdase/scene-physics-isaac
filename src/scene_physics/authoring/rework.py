@@ -42,7 +42,7 @@ def _print(msg: str) -> None:
 @dataclass
 class ReworkConfig:
     margin_px: int = 2  # acceptance: target hidden with this many stimulus pixels to spare
-    max_rounds: int = 5
+    max_rounds: int = 8
     relax: RelaxConfig = field(default_factory=lambda: RelaxConfig(perturb_trials=4))
     hide_stages: tuple[HideConfig, ...] = STAGES  # tried in order until one finds an edit
     contact_tol: float = 0.002
@@ -165,13 +165,15 @@ def rework_scene(source: Scene, config: Config, cfg: ReworkConfig | None = None,
             cue = intent.get((target, n), 1.0) < 2 * cfg.contact_tol
             floors[n] = v0 * (cfg.cue_visibility_keep if cue else cfg.other_visibility_keep)
     result.visibility_floor = floors
+    failed_edits: list = []  # edits that did not survive physics (excluded from later searches)
+    before_edit = last_edit = pre_eval = None
     for k in range(cfg.max_rounds):
         rep = relax.relax(scene, config, cfg.relax, workdir=workdir, log=log)
         for name, pose in rep.final_poses().items():
             scene[name].pose = pose
-        occ = occlusion.OcclusionMeter(scene, stimulus_cam).measure(target, margin_px=cfg.margin_px)
-        behind = sum(occ.coverage.get(n, 0.0) for n in design_occluders)
         meter = occlusion.OcclusionMeter(scene, stimulus_cam)
+        occ = meter.measure(target, margin_px=cfg.margin_px)
+        behind = sum(occ.coverage.get(n, 0.0) for n in design_occluders)
         buried = []
         for n, floor in floors.items():
             v = meter.measure(n, margin_px=0)
@@ -188,20 +190,29 @@ def rework_scene(source: Scene, config: Config, cfg: ReworkConfig | None = None,
         hard = [w for w in rep.warnings if not w.startswith("perturb:")]
         if hard and all(w.startswith("verify:") for w in hard) and k < cfg.max_rounds - 1:
             continue  # still creeping: relax again from where it got to
-        if hard or (cfg.require_robust and not rep.robust):
-            result.reason = "relaxation: " + "; ".join(hard or rep.warnings)
-            break
-        if occ.hidden and not lost and not gained and not buried and (not design_occluders or behind >= cfg.min_design_coverage):
-            result.ok = True
-            result.warnings = [w for w in rep.warnings if w.startswith("perturb:")]
-            break
+        if before_edit is not None and (hard or lost or gained or buried):
+            # the last edit did not survive physics: undo it, and search again without it
+            failed_edits.append(last_edit)
+            for name, pose in before_edit.items():
+                scene[name].pose = pose
+            occ, behind, buried, lost, gained = pre_eval
+            rnd.hide = f"edit {last_edit} reverted (physics: {'; '.join(hard) or 'contacts/visibility changed'})"
+            log(f"[rework] {scene.name}: {rnd.hide}")
+        else:
+            if hard or (cfg.require_robust and not rep.robust):
+                result.reason = "relaxation: " + "; ".join(hard or rep.warnings)
+                break
+            if occ.hidden and not lost and not gained and not buried and (not design_occluders or behind >= cfg.min_design_coverage):
+                result.ok = True
+                result.warnings = [w for w in rep.warnings if w.startswith("perturb:")]
+                break
         # hide the target and/or restore the design's contacts with the smallest edit
         for stage in cfg.hide_stages:
             h = Hider(scene, target, stimulus_cam, stage, intent=intent, design_occluders=design_occluders,
-                      visibility_floor=floors).search()
+                      visibility_floor=floors).search(exclude=failed_edits)
             if h.found:
                 break
-        rnd.hide = h.describe()
+        rnd.hide = (rnd.hide + "; " if rnd.hide else "") + h.describe()
         log(f"[rework] {scene.name}: {h.describe()}")
         if not h.found:
             problems = []
@@ -215,6 +226,8 @@ def rework_scene(source: Scene, config: Config, cfg: ReworkConfig | None = None,
                 problems.append(f"objects less visible than designed: {buried}")
             result.reason = " and ".join(problems) + f"; {h.describe()}"
             break
+        before_edit = {o.name: o.pose.copy() for o in scene.dynamic_objects}
+        last_edit, pre_eval = h.edit, (occ, behind, buried, lost, gained)
         for name, pose in h.poses.items():
             scene[name].pose = pose
     else:

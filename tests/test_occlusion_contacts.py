@@ -129,3 +129,11 @@ def test_hide_restores_the_designed_contacts():
     assert res.moves["block"][1] < 0  # away from the loaf, towards the wall
     an = contacts.ContactAnalyzer(s, samples=2000, device="cpu")
     assert an.separation("block", "loaf", res.poses) > 0.002
+
+
+def test_connected_group_takes_leaning_and_resting_objects_along():
+    from scene_physics.authoring import hide
+
+    s = stack_scene()  # b rests on a; d touches a; c floats
+    rels = contacts.relations(contacts.ContactAnalyzer(s, samples=3000, device="cpu").contacts())
+    assert hide.connected_group(s, rels, "block_a") == ["block_a", "block_b", "block_d"]

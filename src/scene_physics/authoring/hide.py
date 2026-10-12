@@ -73,6 +73,7 @@ class HideResult:
     margin: int = -1
     visible: int = -1
     reason: str = ""
+    edit: tuple | None = None  # (target move, occluder, occluder move): pass back as `exclude` if it fails
 
     def describe(self) -> str:
         if not self.found:
@@ -81,15 +82,19 @@ class HideResult:
         return f"hidden after {self.tried} candidates (cost {self.cost:.2f}): " + "; ".join(parts)
 
 
-def support_group(scene: Scene, rels: set, root: str) -> list[str]:
-    """``root`` and everything resting on it, transitively (dynamic objects only)."""
+def connected_group(scene: Scene, rels: set, root: str) -> list[str]:
+    """``root`` and every dynamic object physically connected to it: resting on it, leaning on it, or
+    supporting it, transitively. Moving the group rigidly keeps every contact inside it."""
     group, frontier = {root}, [root]
     while frontier:
-        lower = frontier.pop()
-        for upper, kind, below in rels:
-            if kind == "on" and below == lower and upper not in group and scene[upper].dynamic:
-                group.add(upper)
-                frontier.append(upper)
+        cur = frontier.pop()
+        for a, _, b in rels:
+            if cur not in (a, b):
+                continue
+            other = b if a == cur else a
+            if other not in group and scene[other].dynamic:
+                group.add(other)
+                frontier.append(other)
     return sorted(group)
 
 
@@ -133,7 +138,13 @@ class Hider:
         self.table = scene.support_bounds(self.cfg.table_margin)
         self.contacts = ContactAnalyzer(scene, samples=4000, device=device)
         self.rels = relations(self.contacts.contacts(tol=self.cfg.contact_tol))
-        self.group = support_group(scene, self.rels, target)
+        group_rels = self.rels
+        if self.intent:
+            # the target's own contacts as designed: an object that only touches it by accident (after
+            # settling) is not moved along, so the search can separate them again
+            designed = {b if a == target else a for (a, b), sep in self.intent.items() if sep < 2 * self.cfg.contact_tol}
+            group_rels = {r for r in self.rels if target not in (r[0], r[2]) or ({r[0], r[2]} - {target}) <= designed}
+        self.group = connected_group(scene, group_rels, target)
         self.occluders = [o for o in (occluders if occluders is not None else self.find_occluders())
                           if o not in self.group and scene[o].dynamic]
         self._base_sep: dict[tuple, dict] = {}
@@ -257,12 +268,26 @@ class Hider:
             moved.append(occ)
         return poses, moved
 
-    def search(self) -> HideResult:
+    @staticmethod
+    def _near(move, occ, omove, failed) -> bool:
+        """Close to an edit that already failed under physics (within 1 cm / 10 deg)."""
+        for fm, focc, fom in failed:
+            if np.hypot(move[0] - fm[0], move[1] - fm[1]) <= 0.0101 and abs(move[2] - fm[2]) <= 10.01 and occ == focc:
+                if occ is None or (np.hypot(omove[0] - fom[0], omove[1] - fom[1]) <= 0.0101 and abs(omove[2] - fom[2]) <= 10.01):
+                    return True
+        return False
+
+    def search(self, exclude: list | None = None) -> HideResult:
+        """``exclude``: edits ``(move, occluder, occluder_move)`` that failed under physics; candidates
+        near them are skipped."""
         c = self.cfg
+        exclude = exclude or []
         tried = 0
         best_margin = None
         x0, x1, y0, y1 = self.table
         for cost, move, occ, omove in self.candidates():
+            if exclude and self._near(move, occ, omove, exclude):
+                continue
             tried += 1
             poses, moved = self.apply(move, occ, omove)
             if any(not (x0 <= p[0] <= x1 and y0 <= p[1] <= y1) for p in poses.values()):
@@ -286,7 +311,9 @@ class Hider:
             moves = {n: tuple(float(v) for v in move) for n in self.group}
             if occ is not None:
                 moves[occ] = tuple(float(v) for v in omove)
-            return HideResult(True, moves, poses, float(cost), tried, o.margin, o.visible)
+            res = HideResult(True, moves, poses, float(cost), tried, o.margin, o.visible)
+            res.edit = (tuple(float(v) for v in move), occ, None if omove is None else tuple(float(v) for v in omove))
+            return res
         return HideResult(False, tried=tried, margin=best_margin if best_margin is not None else -1,
                           reason="no candidate both hides the target and keeps its contacts")
 
