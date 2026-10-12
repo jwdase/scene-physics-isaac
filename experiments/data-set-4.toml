@@ -1,0 +1,20 @@
+# data-set-4: new scenes composed one at a time (`sp compose experiments/data-set-4/sceneNNN.toml`), each built
+# around a physical relationship between the hidden target and the object that hides it (see docs/DATA_SET_4.md).
+experiment = "data-set-4"
+description = "New hand-composed scenes: the target is fully hidden (2 px margin at 1280x960), the truth is a verified rest state, and the target's presence is physically evident (something moves when it is removed)."
+
+[camera]
+# the data-set / data-set-2 / data-set-3 camera (p01_f03)
+name = "p01_f03"
+width = 640
+height = 480
+fov_degree = 34
+eye = [0.0, -1.6628509212474696, 1.1534498743901909]
+target = [0.0, 0.0, 0.8]
+up = [0.0, 0.0, 1.0]
+
+[physics]
+# as data-set-3: the table collides as its bounding box, 32/8 solver iterations (docs/DATA_SET_3.md)
+static_approximation = "boundingCube"
+position_iterations = 32
+velocity_iterations = 8

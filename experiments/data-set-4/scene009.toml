@@ -1,0 +1,52 @@
+name = "scene009"
+title = "Dominoes"
+relationship = "chain lean: two coasters stand on edge and lean right, the second onto the hidden target (block) behind the occluder (mug)"
+idea = """Two coasters stand on their edges and lean to the right like falling dominoes, the first on the second
+and the second on something hidden behind the mug. A coaster tilted that far cannot stand on its own. The
+toaster hides far more of the table, but it is too far away to stop them. Without the hidden block both fall
+to the right."""
+target = "stop"
+touching = [["domino_b", "stop"], ["domino_a", "domino_b"]]
+
+[[object]]
+name = "mug"
+asset = "coffeemug"
+at = [0.12, -0.11]
+yaw = 270
+
+[[object]]
+name = "stop"
+asset = "square_wood_block_v3"
+rotate = [["x", 90]]
+at = [0.127, 0.015]
+
+[[object]]
+name = "domino_b"
+asset = "square_coaster_001_wood"
+rotate = [["y", 90], ["y", 25]]
+at = [0.055, 0.015]
+slide = [{ dir = [1, 0], until = "stop" }]
+
+[[object]]
+name = "domino_a"
+asset = "square_coaster_001_wood"
+rotate = [["y", 90], ["y", 25]]
+at = [-0.015, 0.015]
+slide = [{ dir = [1, 0], until = "domino_b" }]
+
+[[object]]
+name = "toaster"
+asset = "toaster_b"
+at = [-0.25, 0.12]
+yaw = -4
+
+[[object]]
+name = "pitcher"
+asset = "jug01"
+at = [-0.25, 0.31]
+yaw = 90
+
+[[object]]
+name = "orange"
+asset = "orange"
+at = [0.36, -0.10]

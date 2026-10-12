@@ -1,0 +1,46 @@
+name = "scene002"
+title = "House of cards"
+relationship = "mutual lean: the occluder (coaster) and the hidden target (smaller coaster) lean on each other"
+idea = """A square coaster stands on its edge, tilted back. Behind it a second, smaller coaster leans forward
+against it, like two playing cards in a house of cards. Each holds the other up: without the hidden one the
+visible coaster falls flat on its back. The toaster would hide a coaster far more easily, but could not hold
+this one up."""
+target = "back_coaster"
+touching = [["front_coaster", "back_coaster"]]
+
+[[object]]
+name = "back_coaster"
+asset = "square_coaster_001_wood"
+scale = 0.8
+rotate = [["x", 90], ["x", 22]]
+at = [0.10, -0.10]
+
+[[object]]
+name = "front_coaster"
+asset = "square_coaster_001_wood"
+rotate = [["x", 90], ["x", -22]]
+at = [0.10, -0.18]
+slide = [{ dir = [0, 1], until = "back_coaster" }]
+
+[[object]]
+name = "toaster"
+asset = "toaster_b"
+at = [-0.20, 0.06]
+yaw = 6
+
+[[object]]
+name = "pitcher"
+asset = "jug01"
+at = [-0.21, 0.26]
+yaw = 200
+
+[[object]]
+name = "jug"
+asset = "jug02"
+at = [0.33, 0.14]
+yaw = 140
+
+[[object]]
+name = "orange"
+asset = "orange"
+at = [0.30, -0.16]

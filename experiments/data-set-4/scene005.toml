@@ -1,0 +1,48 @@
+name = "scene005"
+title = "Shimmed vase"
+relationship = "wedge: the vase stands tilted on the hidden target (battery) wedged under the back right of its base"
+idea = """A vase leans to the left and forward. A vase with a wide flat base stands upright on a flat table, and
+nothing visible touches this one: it is tilted because something is wedged under the back right of its base,
+out of sight behind the vase itself. The loaf hides a far larger area, but nothing behind the loaf could tilt the vase. Without the
+battery the vase rocks back upright."""
+target = "battery"
+touching = [["vase", "battery"]]
+
+[[object]]
+name = "battery"
+asset = "_9v_battery"
+rotate = [["y", 90]]
+at = [0.247, 0.097]
+yaw = 135
+
+[[object]]
+name = "vase"
+on = "battery"
+asset = "vase_05"
+rotate = [[[0.707, -0.707, 0], 11]]
+at = [0.20, 0.05]
+
+[[object]]
+name = "cup"
+asset = "coffeecup004_fix"
+at = [0.27, -0.06]
+yaw = 100
+slide = [{ dir = [-0.3, 1], until = "vase" }]
+
+[[object]]
+name = "loaf"
+asset = "b03_loafbread"
+at = [-0.20, 0.08]
+yaw = 8
+
+[[object]]
+name = "jug"
+asset = "jug02"
+at = [-0.22, 0.24]
+yaw = 120
+
+[[object]]
+name = "banana"
+asset = "banana_fix2"
+at = [-0.02, -0.20]
+yaw = 20

@@ -1,0 +1,45 @@
+name = "scene007"
+title = "Perched orange"
+relationship = "on top: an orange sits in the mouth of the hidden target (cup) standing behind the occluder (mug)"
+idea = """An orange sits up in the air just behind a mug, higher than the mug's rim and not touching it. An
+orange cannot stay up there on its own: it sits on something hidden behind the mug. The toaster hides far more
+of the table, but nothing behind it could hold the orange up. Without the cup the orange drops behind the mug."""
+target = "cup"
+touching = [["orange", "cup"]]
+apart = [["orange", "mug"]]
+
+[[object]]
+name = "mug"
+asset = "coffeemug"
+at = [0.10, -0.10]
+yaw = 270
+
+[[object]]
+name = "cup"
+asset = "coffeecup004_fix"
+at = [0.103, 0.03]
+yaw = 90
+
+[[object]]
+name = "orange"
+on = "cup"
+asset = "orange"
+at = [0.103, 0.03]
+
+[[object]]
+name = "toaster"
+asset = "toaster_b"
+at = [-0.21, 0.08]
+yaw = 6
+
+[[object]]
+name = "jug"
+asset = "jug01"
+at = [-0.24, 0.28]
+yaw = 90
+
+[[object]]
+name = "banana"
+asset = "banana_fix2"
+at = [0.33, -0.12]
+yaw = -20

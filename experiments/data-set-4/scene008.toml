@@ -1,0 +1,45 @@
+name = "scene008"
+title = "Plate on two mugs"
+relationship = "bridge: a plate lies across the occluder (mug) and the hidden target (a second, slightly slimmer mug) behind it"
+idea = """A stone plate lies flat on top of a mug, but most of it reaches out behind the mug. Balanced on one mug
+it would tip off backwards: it also rests on something hidden behind the mug, exactly as high as the
+mug's rim (a second, slimmer mug). The toaster hides far more of the table, but nothing behind it could hold the
+plate. Without the hidden mug the plate tips off backwards."""
+target = "back_mug"
+touching = [["plate", "back_mug"], ["plate", "front_mug"]]
+
+[[object]]
+name = "front_mug"
+asset = "coffeemug"
+at = [-0.02, -0.15]
+yaw = 270
+
+[[object]]
+name = "back_mug"
+asset = "coffeemug"
+scale = [0.9, 0.9, 1.0]
+at = [-0.021, -0.008]
+yaw = 90
+
+[[object]]
+name = "plate"
+on = "any"
+asset = "round_coaster_stone_v2"
+at = [-0.02, -0.079]
+
+[[object]]
+name = "toaster"
+asset = "toaster"
+at = [0.24, 0.08]
+yaw = -6
+
+[[object]]
+name = "vase"
+asset = "vase_05"
+at = [0.27, 0.29]
+
+[[object]]
+name = "banana"
+asset = "banana_fix2"
+at = [-0.30, 0.05]
+yaw = 60

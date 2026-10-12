@@ -1,0 +1,46 @@
+name = "scene004"
+title = "Stacked plates"
+relationship = "spacer: the occluder (top plate) lies tilted on a lower plate, propped on the hidden target (block) between them"
+idea = """Two stone plates lie on top of each other, but the top one is tilted towards the viewer, its back edge
+raised. A plate stacked on a plate lies flat; something hidden between the two holds the back edge up. The
+big upturned bowl could hide the block far more easily, but nothing under it could lift the plate. Without the block the top
+plate drops flat onto the lower one."""
+target = "block"
+touching = [["top_plate", "block"], ["block", "bottom_plate"]]
+
+[[object]]
+name = "bottom_plate"
+asset = "round_coaster_stone_v2"
+at = [0.12, -0.06]
+
+[[object]]
+name = "block"
+on = "bottom_plate"
+asset = "square_wood_block"
+at = [0.12, 0.0]
+yaw = 8
+
+[[object]]
+name = "top_plate"
+on = "any"
+asset = "round_coaster_stone_v2"
+rotate = [["x", 12]]
+at = [0.12, -0.065]
+
+[[object]]
+name = "big_bowl"
+asset = "int_kitchen_accessories_le_creuset_bowl_30cm"
+rotate = [["x", 180]]
+at = [-0.23, 0.06]
+yaw = -8
+
+[[object]]
+name = "jug"
+asset = "jug02"
+at = [-0.08, 0.24]
+yaw = 140
+
+[[object]]
+name = "orange"
+asset = "orange"
+at = [-0.08, -0.21]

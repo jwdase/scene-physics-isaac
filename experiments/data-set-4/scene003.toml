@@ -1,0 +1,41 @@
+name = "scene003"
+title = "Shell game"
+relationship = "on top: the occluder (small upturned bowl) rests with its rim on the hidden target (block)"
+idea = """Two bowls lie upside down. The big one lies flat and could hide almost anything underneath it; the
+small one is tilted, its back rim lifted off the table. A bowl turned over sits flat unless something under
+its rim holds that side up, so the block is under the small bowl, not under the big one. Without the hidden
+block the small bowl drops flat."""
+target = "block"
+touching = [["bowl", "block"]]
+
+[[object]]
+name = "block"
+asset = "square_wood_block_v3"
+at = [0.102, 0.024]
+yaw = 25
+
+[[object]]
+name = "bowl"
+on = "block"
+asset = "b04_bowl_smooth"
+rotate = [["x", 180], [[0.907, 0.421, 0], 11]]
+at = [0.15, -0.08]
+
+[[object]]
+name = "big_bowl"
+asset = "int_kitchen_accessories_le_creuset_bowl_30cm"
+rotate = [["x", 180]]
+at = [-0.22, 0.04]
+yaw = 10
+
+[[object]]
+name = "cup"
+asset = "coffeecup004_fix"
+at = [-0.02, -0.23]
+yaw = 160
+
+[[object]]
+name = "banana"
+asset = "banana_fix2"
+at = [0.36, 0.15]
+yaw = -30

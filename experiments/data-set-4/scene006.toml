@@ -1,0 +1,45 @@
+name = "scene006"
+title = "Leaning pepper mill"
+relationship = "side lean: a pepper mill leans left onto the hidden target (wooden block) standing behind the occluder (mug)"
+idea = """A pepper mill leans to the left with its top behind a mug. A mill tilted that far cannot stand on its
+own; it rests on something hidden behind the mug. The toaster hides far more of the table, but it is too far
+away to hold the mill. Without the block the mill falls over to the left."""
+target = "block"
+touching = [["mill", "block"]]
+
+[[object]]
+name = "mug"
+asset = "coffeemug"
+at = [-0.06, -0.10]
+yaw = 160
+
+[[object]]
+name = "block"
+asset = "square_wood_block_v3"
+rotate = [["x", 90], ["z", 90]]
+at = [-0.044, 0.0]
+slide = [{ dir = [0, -1], until = "mug" }]
+
+[[object]]
+name = "mill"
+asset = "cylinder01"
+rotate = [["y", -38]]
+at = [0.10, -0.03]
+slide = [{ dir = [-1, 0], until = "block" }]
+
+[[object]]
+name = "toaster"
+asset = "toaster"
+at = [0.24, 0.15]
+yaw = -6
+
+[[object]]
+name = "glass"
+asset = "b04_wineglass"
+at = [0.27, 0.30]
+
+[[object]]
+name = "banana"
+asset = "banana_fix2"
+at = [-0.30, -0.16]
+yaw = 30

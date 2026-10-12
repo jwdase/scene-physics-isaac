@@ -1,0 +1,54 @@
+name = "scene010"
+title = "Leaning phones"
+relationship = "spacer: two phones lean inwards from the left and the right onto the hidden target (wooden block) behind the occluder (mug)"
+idea = """Two phones stand on end and lean towards each other, the left one to the right and the right one to
+the left, but their tops do not touch: something hidden behind the mug keeps them apart and holds both up.
+The toaster hides far more of the table, but nothing behind it could hold the phones. Without the block both fall
+inwards."""
+target = "block"
+touching = [["left_phone", "block"], ["right_phone", "block"]]
+apart = [["left_phone", "right_phone"]]
+
+[[object]]
+name = "mug"
+asset = "coffeemug"
+at = [-0.06, -0.16]
+yaw = 270
+
+[[object]]
+name = "block"
+asset = "square_wood_block_v3"
+rotate = [["x", 90]]
+at = [-0.064, -0.062]
+
+[[object]]
+name = "left_phone"
+asset = "f10_apple_iphone_4_v2"
+rotate = [["y", 90], ["y", 22]]
+at = [-0.17, -0.062]
+slide = [{ dir = [1, 0], until = "block" }]
+
+[[object]]
+name = "right_phone"
+asset = "f10_apple_iphone_4_v2"
+rotate = [["y", 90], ["y", -22]]
+at = [0.05, -0.062]
+slide = [{ dir = [-1, 0], until = "block" }]
+
+[[object]]
+name = "toaster"
+asset = "toaster_b"
+at = [0.22, 0.07]
+yaw = -6
+
+[[object]]
+name = "pitcher"
+asset = "jug01"
+at = [0.23, 0.27]
+yaw = 160
+
+[[object]]
+name = "banana"
+asset = "banana_fix2"
+at = [-0.33, 0.12]
+yaw = -40

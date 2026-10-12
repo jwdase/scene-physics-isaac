@@ -92,6 +92,13 @@ finished scenes into a new experiment: relaxed, the target hidden with a margin 
 keeps the scene's contacts and occluders, hand edits from `experiments/<new-exp>/edits.toml`. This is how
 data-set-3 was made from data-set-2: see [`docs/DATA_SET_3.md`](docs/DATA_SET_3.md).
 
+**Composing new scenes.** `sp compose experiments/<exp>/<scene>.toml --exp <exp>` builds a scene from a spec
+(library objects, how each is rotated, dropped and slid into contact), relaxes it and reports whether it
+works as a hidden-object trial: target hidden with a margin, verified and robust rest state, physical evidence
+of the target, and a decoy hiding place that an occlusion-only guess would prefer. Pictures of every attempt go
+to `authoring/<exp>/<scene>.compose/`; `--finalize` writes the finished scene. data-set-4 was made this way:
+see [`docs/DATA_SET_4.md`](docs/DATA_SET_4.md).
+
 ## The scene file
 
 One USD file per scene; open it in Isaac Sim and press Play and it simulates. Everything the old

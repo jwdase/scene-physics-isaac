@@ -1,0 +1,38 @@
+name = "scene001"
+title = "Propped-up phone"
+relationship = "lean back: the occluder (phone) leans on the hidden target (can)"
+idea = """A phone stands upright, tilted back 20 degrees, with nothing visible holding it. A phone cannot stand
+like that on its own: something hidden behind it props it up. The toaster hides a much larger area, but
+nothing behind the toaster could hold the phone. Without the can the phone falls flat on its back."""
+target = "can"
+touching = [["phone", "can"]]
+
+[[object]]
+name = "can"
+asset = "b03_cocacola_can_cage"
+at = [-0.16, -0.05]
+
+[[object]]
+name = "phone"
+asset = "f10_apple_iphone_4_v2"
+rotate = [["y", 90], ["z", 90], ["x", -20]]
+at = [-0.16, -0.12]
+slide = [{ dir = [0, 1], until = "can" }]
+
+[[object]]
+name = "toaster"
+asset = "toaster_b"
+at = [0.17, 0.10]
+yaw = -8
+
+[[object]]
+name = "banana"
+asset = "banana_fix2"
+at = [0.05, -0.23]
+yaw = 15
+
+[[object]]
+name = "mug"
+asset = "coffeemug"
+at = [-0.37, 0.12]
+yaw = 200
