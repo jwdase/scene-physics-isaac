@@ -106,7 +106,7 @@ scene:
    the target either alone (what rests on it stays put and re-settles) or rigidly together with everything
    physically connected to it (what rests or leans on it), and may move the main occluder a little.
    Candidates go from small moves (≤ 4 cm, 15°) through occluder moves (≤ 4 cm, 15°) to large target moves
-   (≤ 16 cm, 90°), cheapest first; moving the hidden target is cheap, moving anything visible (the
+   (≤ 20 cm, 90°), cheapest first; moving the hidden target is cheap, moving anything visible (the
    occluder, or a cue that moves with the target) costs three times as much. Then back to 1.
 
    Every edit is tested by physics: if, after relaxing, something slides, a contact changes, an object the

@@ -61,7 +61,7 @@ STAGES = (
                occluder_step=0.01, occluder_max_yaw_deg=15.0),
     HideConfig(max_shift=0.10, shift_step=0.01, max_yaw_deg=45.0, yaw_step_deg=15.0, occluder_max_shift=0.0,
                occluder_max_yaw_deg=0.0, unit_m=0.02, unit_deg=15.0),
-    HideConfig(max_shift=0.16, shift_step=0.02, max_yaw_deg=90.0, yaw_step_deg=15.0, occluder_max_shift=0.03,
+    HideConfig(max_shift=0.20, shift_step=0.02, max_yaw_deg=90.0, yaw_step_deg=15.0, occluder_max_shift=0.03,
                occluder_step=0.01, occluder_max_yaw_deg=10.0, unit_m=0.02, unit_deg=15.0),
 )
 
