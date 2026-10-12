@@ -1,7 +1,8 @@
 """Rework a finished scene for a new experiment (``sp rework``): the experiment's camera, a verified rest
 state, and the target hidden with a margin, changing the original arrangement as little as possible.
 
-For each scene, starting from the source scene's poses (plus any hand edits from an edits file):
+For each scene, starting from the source scene's poses (plus any hand edits from an edits file; an edit
+can also turn the whole arrangement or choose another target, see :func:`redesign`):
 
 1. **relax** (:mod:`.relax`): overlaps pushed apart under low gravity, settled under the model's physics,
    verified by an inference-length rollout and small perturbations;
@@ -104,11 +105,43 @@ def load_edits(path: str | Path | None) -> dict:
         move = { b03_loafbread_008_008 = [0.02, 0.03, 10.0] }   # dx, dy (m), yaw (deg) about the object's centre
         pose = { coffeemug_008 = [x, y, z, qx, qy, qz, qw] }     # absolute pose
         camera = { azimuth = 5.0 }                               # per-scene camera override (orbit terms)
+        rotate = 90.0                                            # the whole arrangement (see redesign)
+        target = "square_wood_block_013_008"                     # another object is the target
     """
     if path is None or not Path(path).exists():
         return {}
     with open(path, "rb") as fh:
         return tomllib.load(fh)
+
+
+def redesign(source: Scene, edit: dict) -> Scene:
+    """The source design as an edit corrects it, before anything is measured against it (the target's
+    contacts and occluders, what must stay visible, how far objects move): ``rotate`` turns every dynamic
+    object by that many degrees (counterclockwise seen from above) about the vertical axis through the table's
+    centre, for a design laid out for a camera on another side of the table (the table and the camera stay);
+    ``target`` makes that object the hidden target (the old target becomes observed). The source itself if
+    the edit does neither."""
+    if not edit.get("rotate") and not edit.get("target"):
+        return source
+    scene = copy.deepcopy(source)
+    if edit.get("rotate"):
+        lo, hi = scene.support.world_aabb()
+        centre = np.array([(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, 0.0])
+        names = [o.name for o in scene.dynamic_objects]
+        for name, pose in move_poses(scene, names, 0.0, 0.0, float(edit["rotate"]), centre).items():
+            scene[name].pose = pose
+    if edit.get("target"):
+        target = edit["target"]
+        if target not in scene:
+            raise KeyError(f"edit target {target!r} is not an object in {scene.name}: {sorted(scene.objects)}")
+        for o in scene.dynamic_objects:
+            if "target" in o.tags:
+                o.tags.remove("target")
+            if o.role == "hidden":
+                o.role = "observed"
+        scene[target].tags.append("target")
+        scene[target].role = "hidden"
+    return scene
 
 
 def apply_edits(scene: Scene, edit: dict) -> None:
@@ -138,6 +171,7 @@ def rework_scene(source: Scene, config: Config, cfg: ReworkConfig | None = None,
     log = log or _print
     edit = edit or {}
     t0 = time.time()
+    source = redesign(source, edit)  # turned, or another target: the design the result is measured against
     scene = copy.deepcopy(source)
     target = source.target.name
     if config.camera is not None:

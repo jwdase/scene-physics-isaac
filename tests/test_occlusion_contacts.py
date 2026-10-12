@@ -160,6 +160,24 @@ with = { block_a = ["block_b"] }
     assert s["block_c"].pose[2] == pytest.approx(0.75)  # dropped 5 cm
 
 
+def test_hand_edits_turn_the_arrangement_and_change_the_target():
+    from scene_physics import geometry
+    from scene_physics.authoring import rework
+
+    s = stack_scene()
+    s["block_b"].tags.append("target")
+    s["block_b"].role = "hidden"
+    turned = rework.redesign(s, {"rotate": 90.0, "target": "block_c"})
+    # every object turns about the table's centre (counterclockwise from above): c (0.25, 0.1) -> (-0.1, 0.25)
+    assert np.allclose(turned["block_c"].pose[:3], [-0.1, 0.25, 0.80], atol=1e-9)
+    assert np.degrees(geometry.rotation_angle(turned["block_a"].pose[3:], s["block_a"].pose[3:])) == pytest.approx(90.0)
+    assert np.allclose(turned["table"].pose, s["table"].pose)
+    assert turned.target.name == "block_c" and turned["block_c"].role == "hidden"
+    assert turned["block_b"].role == "observed" and "target" not in turned["block_b"].tags
+    assert s.target.name == "block_b" and np.allclose(s["block_c"].pose[:2], [0.25, 0.1])  # the source is kept
+    assert rework.redesign(s, {"note": "no redesign"}) is s
+
+
 def test_target_outside_the_image_is_not_hidden():
     meter = occlusion.OcclusionMeter(occlusion_scene(0.0), CAM)
     far = meter.measure("block", margin_px=2, poses={"block": np.array([5.0, 0.3, 1.0, 0, 0, 0, 1.0])})

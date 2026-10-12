@@ -14,7 +14,10 @@ that data-set-2 violates:
 Each scene keeps its data-set-2 design: the same objects, target, occluders and camera, and the same
 physical relationship between the target and the objects around it (a bowl resting on the hidden block,
 a loaf leaning on it, a vase tilted onto the hidden coaster, ...). Edits are as small as the constraints
-allow; the table below lists every change.
+allow; the table below lists every change. The exceptions are scenes 003 and 017: data-set-2 shows their design
+(a bowl propped up on a block, as in 001, 002, 005, 053 and 054) from the side, with the block in plain view and
+another object as the target. In data-set-3 their arrangement is turned to face the camera, so the bowl hides the
+block, and the block is the target.
 
 ## Scenes
 
@@ -24,7 +27,7 @@ Target visible: pixels of the target in the 1280×960 data-set-2 stimulus (ray c
 |---|---|---|---|---|---|---|---|
 | 001 | block | loaf | bowl on block | 0 | loaf 3.2 cm, block (target) 1.7 cm | bowl 1.9 cm | hiding edit |
 | 002 | block | loaf | bowl touches block | 1231 | block (target) 10.8 cm, bowl 10.8 cm | bowl 1.0 cm | hiding edit |
-| 003 | mug | coffee maker | — | 170 | mug (target) 1.0 cm | nothing | hiding edit |
+| 003 | block | bowl | bowl touches block | 1341 | arrangement turned 90° (the camera looks from the data-set-2 left side), then settling only (< 1 cm, 5°) | bowl 2.9 cm | hand edit (turned, block is the target) |
 | 004 | block | grinder | — | 0 | banana 0.3 cm / 6° | banana 2.0 cm | relaxed |
 | 005 | block | jug | bowl touches block | 0 | settling only (< 1 cm, 5°) | bowl 2.9 cm | relaxed |
 | 006 | block | jug | bowl on block | 0 | settling only (< 1 cm, 5°) | bowl 4.7 cm | relaxed |
@@ -38,7 +41,7 @@ Target visible: pixels of the target in the 1280×960 data-set-2 stimulus (ray c
 | 014 | block | loaf | loaf touches block | 0 | bowl 1.2 cm | loaf 6.3 cm | relaxed |
 | 015 | block | jug | — | 0 | bowl 1.2 cm | loaf 8.0 cm | relaxed |
 | 016 | block | jug | — | 0 | bowl 1.2 cm | loaf 8.0 cm | relaxed |
-| 017 | loaf | bowl | — | 10476 | loaf (target) 16.2 cm / 45° | nothing | hand edit + camera, hiding edit |
+| 017 | block | bowl | bowl touches block | 8821 | arrangement turned −90° (the camera looks from the data-set-2 right side), then settling only (< 1 cm, 5°) | bowl 2.5 cm | hand edit (turned, block is the target) |
 | 018 | block | bowl | bowl touches block | 0 | settling only (< 1 cm, 5°) | bowl 6.3 cm | relaxed |
 | 019 | block | grinder | loaf on block | 0 | settling only (< 1 cm, 5°) | loaf 3.1 cm | relaxed |
 | 020 | block | shark | phone on block | 0 | shark 1.1 cm | phone 3.1 cm | hiding edit |
@@ -120,9 +123,10 @@ RTX to judge whether they still look like ordinary photographs of a table.
   moving objects. **data-set-3 therefore keeps the data-set camera** and hides targets by editing the
   scenes. Only 30 targets stay hidden when the camera moves by ±1° / ±15 cm: many data-set-2 designs hide
   the target by a hair, which is why data-set-3 requires a margin.
-* Two designs (scene017, scene040) cannot be realised from that camera at all (see the table); they use
-  the camera 11 cm lower (8°, 1.5 m, same framing), where small edits hide them and nothing else in the
-  scene gets buried.
+* One design (scene040) cannot be realised from that camera at all (see the table); it uses the camera
+  11 cm lower (8°, 1.5 m, same framing), where a small edit hides it and nothing else in the scene gets
+  buried. scene017's loaf was a second such target, until the scene was turned to face the camera with the
+  block as its target.
 
 ## Physics
 
@@ -154,8 +158,8 @@ uv run sp rework data/data-set-2/scene0* --exp data-set-3      # -> data/data-se
 ```
 
 `sp rework` (`src/scene_physics/authoring/rework.py`) applies the hand edits of
-`experiments/data-set-3/edits.toml` (authoring errors, the two camera exceptions) and then loops, per
-scene:
+`experiments/data-set-3/edits.toml` (authoring errors, two designs turned to face the camera with the block
+as the target, one camera exception) and then loops, per scene:
 
 1. **Relax** (`sp relax`, `authoring/relax.py`). Authored poses are rarely a rest state: objects sit a few
    millimetres inside the table or each other, or float above it. Simulated directly under full gravity,
@@ -199,14 +203,15 @@ stimulus, segmentation, depth and target silhouette are rendered.
 
 * **Target hidden**: the target has 0 pixels in the path-traced segmentation of every stimulus, and the ray caster finds no visible pixel even with the 2-pixel margin in all 70 scenes (66 also with a 4-pixel margin).
 * **At rest**: a 2.5 s rollout (one inference rollout) from the stored truth moves no object more than 0.72 mm (median 0.010 mm); in data-set-2 the same rollout moved objects by up to 58 mm (median 6.0 mm).
-* **Physical evidence kept**: removing the target makes another object move (≥ 5 mm) in 62 scenes (data-set-2: 61); where both datasets show evidence, it is the same object in 61 of 61. In the other scenes the target touches nothing: they are pure occlusion trials, as in data-set-2.
+* **Physical evidence kept**: removing the target makes another object move (≥ 5 mm) in 64 scenes (data-set-2: 61, where 003 and 017 had targets that touch nothing); where both datasets show evidence, it is the same object in 61 of 61. In the other 6 scenes the target touches nothing: they are pure occlusion trials, as in data-set-2.
 * `sp validate data/data-set-3/scene0*`: all scenes valid (roles, priors, segmentation ids).
 * **No trace of the target**: each stimulus was rendered again with the target removed. Two renders of the same scene differ by up to 11.2/255 (path-tracing noise, 9×9 local mean); without the target, 55 of 70 stimuli stay within twice that; in 003, 005, 013, 016, 017, 024, 025, 028, 039, 042, 043, 044, 051, 053, 055 the target's shadow changes the image (see Caveats).
 
 ## Caveats
 
 * **Shadows of the hidden target** (15 scenes): the target is fully occluded, but it still blocks light, and in these scenes its soft shadow falls where the camera sees it (mostly from the rim light behind the table: switching that light off halves the effect). Rendering the hidden object without shadows and reflections (`[render] hidden_shadows = false` in `experiments/data-set-3.toml`, then `sp render` each scene) removes every trace (difference to the scene without the target within path-tracing noise), at the price of lighting that is subtly non-physical. The stimuli are rendered with physical shadows; which one the experiment should use is a design decision.
-* **Camera exceptions**: scene017, scene040 use the data-set camera lowered by 11 cm (8° elevation at 1.5 m, FOV 38.2°, same framing): from p01_f03 no physically valid arrangement hides their targets behind their design occluders. Drop them if a single camera matters more.
+* **Camera exception**: scene040 uses the data-set camera lowered by 11 cm (8° elevation at 1.5 m, FOV 38.2°, same framing): from p01_f03 no physically valid arrangement hides its target behind its design occluder. Drop it if a single camera matters more.
+* **Turned scenes**: 003 and 017 differ from data-set-2 by more than a small edit: the arrangement is turned (90°, −90°) and the target is the block instead of data-set-2's mug and loaf, so their data-set-2 results do not carry over. They were re-made on 2026-10-12 with `sp rework data/data-set-2/scene003 data/data-set-2/scene017 --exp data-set-3 --overwrite` and pass every check above: target 0 px in the stimulus and hidden with a 4-pixel margin, a 2.5 s rollout moves nothing more than 0.45 mm, no perturbation warnings, and without the block the bowl drops (2.9 cm / 18°, 2.5 cm / 21°); the block's shadow shows in both, as the old targets' did. The rework's render of 017 had low-resolution textures (captured before they finished streaming in) and was rendered again with `sp render data-set-3/scene017`: after a rework, look at the stimuli.
 * **Fragile rests**: these scenes are at rest, but a ±1 mm / 0.5° nudge of every object moves something more than 5 mm (a cue balanced on the hidden object): 007 (block moves 6.7 mm); 018 (block moves 6.2 mm); 031 (phone moves 31.4 mm); 045 (stone coaster moves 5.2 mm).
 * **Observed but not visible**, exactly as in data-set-2: the banana in 024, the key in 032 and 070, the phone and the can in 067, the phone in 068 are 0% visible but observed, so the model is given their poses. Mark them hidden with `sp roles <scene> --set NAME=hidden` if they should be inferred too.
 * **Physics config**: data-set-3 uses the box table and 32/8 iterations (`experiments/data-set-3.toml`); data-set keeps its own physics. Adopting the same settings for data-set would mean re-settling its scenes (`sp rework` / `sp finalize`).

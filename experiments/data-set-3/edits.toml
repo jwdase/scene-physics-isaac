@@ -3,6 +3,9 @@
 #   move = { object = [dx, dy, yaw_deg] }  or  [dx, dy, yaw_deg, dz]   (metres, about the object's centre)
 #   with = { object = [other, ...] }        objects that move rigidly together with `object`
 #   pose = { object = [x, y, z, qx, qy, qz, qw] }
+#   rotate = deg                            the whole arrangement, about the table's centre (counterclockwise seen
+#                                           from above): a design laid out for a camera on another side of the table
+#   target = "object"                       the hidden target, when the design's target is another object
 
 # ---------------------------------------------------------------- authoring errors in data-set-2
 [scene025]
@@ -18,15 +21,26 @@ note = "the coaster resting on the hidden block passed 12.6 mm into the candle h
 move = { square_wood_block_004 = [0.0, 0.057, 0.0] }
 with = { square_wood_block_004 = ["round_coaster_stone_001"] }
 
-# ---------------------------------------------------------------- designs that cannot be hidden from p01_f03
-# At the data-set camera no physically valid arrangement hides these targets behind their design occluders
-# (searched exhaustively: placements, turns and small occluder moves). From a camera 11 cm lower (8 deg
-# elevation at 1.5 m, FOV 38.2 deg, same framing) they hide with small edits and nothing else the design
-# shows gets buried. These two scenes use that camera; drop them if a single camera matters more.
-[scene017]
-note = "the loaf (32 x 24 x 11 cm) is 63% visible in data-set-2 and no placement behind the tilted bowl hides it from p01_f03 (best: 9 px visible at 640x480). Lower camera; the loaf is then moved behind the bowl by the search"
-camera = { elevation = 8.0, distance = 1.5, name = "p01_f03_low" }
+# ---------------------------------------------------------------- designs laid out for another side of the table
+# The bowl-propped-on-a-hidden-block design (scenes 001, 002, 005, 053, 054: the block holds one side of a tilted
+# bowl up) appears in these two scenes turned sideways to the camera: the block shows beside the bowl and data-set-2
+# made another object the target. Turned so the camera looks at the bowl from the side opposite the block, the
+# bowl hides the block completely (before any edit), and the block is the target.
+[scene003]
+note = "the block holds up the right side of the tilted bowl in plain view (32% visible) and the target was a mug 40 cm behind the coffee maker, touching nothing. Turned 90 deg: the camera looks from the former left side, the block is behind the bowl and is the target; the mug now stands in front, visible"
+rotate = 90.0
+target = "square_wood_block_013_002"
 
+[scene017]
+note = "the block holds up the left side of the tilted bowl in plain view, and the target was the loaf (63% visible in data-set-2), which no placement behind the bowl hid from p01_f03 (it needed a lowered camera). Turned -90 deg: the camera looks from the former right side, the block is behind the bowl and is the target; data-set camera"
+rotate = -90.0
+target = "square_wood_block_013_008"
+
+# ---------------------------------------------------------------- designs that cannot be hidden from p01_f03
+# At the data-set camera no physically valid arrangement hides this target behind its design occluder
+# (searched exhaustively: placements, turns and small occluder moves). From a camera 11 cm lower (8 deg
+# elevation at 1.5 m, FOV 38.2 deg, same framing) it hides with a small edit and nothing else the design
+# shows gets buried. This scene uses that camera; drop it if a single camera matters more.
 [scene040]
 note = "the loaf (occluder) passed 21 mm into the vase and only that overlap hid the coaster; with the loaf at rest no placement of the vase and coaster (12 cm, 30 deg) or of the loaf (4 cm, 30 deg) hides the coaster from p01_f03. Lower camera; relaxation separates loaf and vase and the coaster is hidden with a small move"
 camera = { elevation = 8.0, distance = 1.5, name = "p01_f03_low" }
