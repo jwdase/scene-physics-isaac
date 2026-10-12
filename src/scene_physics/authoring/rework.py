@@ -49,6 +49,9 @@ class ReworkConfig:
     require_robust: bool = False  # fail scenes whose rest does not survive the perturbation test
     design_occluder_min: float = 0.05  # an object covering this much of the target in the source is an occluder
     min_design_coverage: float = 0.5  # the design's occluders must cover at least this much in the result
+    visible_min: float = 0.10  # objects at least this visible in the source must stay visible:
+    cue_visibility_keep: float = 0.75  # ... objects touching the target keep 75% of their visible fraction
+    other_visibility_keep: float = 0.5  # ... the others keep half
 
 
 @dataclass
@@ -61,6 +64,7 @@ class Round:
     gained: list
     worst_motion_mm: float
     behind_design_occluders: float = 0.0
+    buried: list = field(default_factory=list)
     hide: str = ""
 
 
@@ -75,6 +79,7 @@ class ReworkResult:
     rotation_deg: dict[str, float] = field(default_factory=dict)
     edits: dict = field(default_factory=dict)
     design_occluders: list[str] = field(default_factory=list)
+    visibility_floor: dict = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     wall_seconds: float = 0.0
 
@@ -150,32 +155,50 @@ def rework_scene(source: Scene, config: Config, cfg: ReworkConfig | None = None,
     src_occ = occlusion.OcclusionMeter(source, source.camera.scaled(config.render.scale)).measure(target, margin_px=0)
     design_occluders = [n for n, f in src_occ.coverage.items() if f >= cfg.design_occluder_min and n in others]
     result.design_occluders = design_occluders
+    # objects the design shows stay visible: cues (touching the target) keep most of their visibility
+    src_meter = occlusion.OcclusionMeter(source, source.camera.scaled(config.render.scale))
+    floors = {}
+    for n in others:
+        v = src_meter.measure(n, margin_px=0)
+        v0 = v.visible / v.silhouette if v.silhouette else 0.0
+        if v0 >= cfg.visible_min:
+            cue = intent.get((target, n), 1.0) < 2 * cfg.contact_tol
+            floors[n] = v0 * (cfg.cue_visibility_keep if cue else cfg.other_visibility_keep)
+    result.visibility_floor = floors
     for k in range(cfg.max_rounds):
         rep = relax.relax(scene, config, cfg.relax, workdir=workdir, log=log)
         for name, pose in rep.final_poses().items():
             scene[name].pose = pose
         occ = occlusion.OcclusionMeter(scene, stimulus_cam).measure(target, margin_px=cfg.margin_px)
         behind = sum(occ.coverage.get(n, 0.0) for n in design_occluders)
+        meter = occlusion.OcclusionMeter(scene, stimulus_cam)
+        buried = []
+        for n, floor in floors.items():
+            v = meter.measure(n, margin_px=0)
+            if v.silhouette and v.visible / v.silhouette < floor:
+                buried.append(f"{n} {v.visible / v.silhouette:.0%} < {floor:.0%}")
         now = contacts.ContactAnalyzer(scene).separations([target], others=others)
         lost, gained = contacts.changed(intent, now, touching=cfg.contact_tol, apart=2 * cfg.contact_tol)
         worst = max(o.total_displacement for o in rep.objects) * 1e3
-        rnd = Round(rep.ok, rep.warnings, occ.visible, occ.margin, sorted(lost), sorted(gained), worst, behind)
+        rnd = Round(rep.ok, rep.warnings, occ.visible, occ.margin, sorted(lost), sorted(gained), worst, behind, buried)
         result.rounds.append(rnd)
         log(f"[rework] {scene.name} round {k + 1}: relax {'ok' if rep.ok else 'NOT ok'}, target visible {occ.visible} px, "
-            f"margin {occ.margin} px, behind design occluders {behind:.0%}, lost {sorted(lost)}, gained {sorted(gained)}")
+            f"margin {occ.margin} px, behind design occluders {behind:.0%}, lost {sorted(lost)}, gained {sorted(gained)}"
+            + (f", less visible than designed: {buried}" if buried else ""))
         hard = [w for w in rep.warnings if not w.startswith("perturb:")]
         if hard and all(w.startswith("verify:") for w in hard) and k < cfg.max_rounds - 1:
             continue  # still creeping: relax again from where it got to
         if hard or (cfg.require_robust and not rep.robust):
             result.reason = "relaxation: " + "; ".join(hard or rep.warnings)
             break
-        if occ.hidden and not lost and not gained and (not design_occluders or behind >= cfg.min_design_coverage):
+        if occ.hidden and not lost and not gained and not buried and (not design_occluders or behind >= cfg.min_design_coverage):
             result.ok = True
             result.warnings = [w for w in rep.warnings if w.startswith("perturb:")]
             break
         # hide the target and/or restore the design's contacts with the smallest edit
         for stage in cfg.hide_stages:
-            h = Hider(scene, target, stimulus_cam, stage, intent=intent, design_occluders=design_occluders).search()
+            h = Hider(scene, target, stimulus_cam, stage, intent=intent, design_occluders=design_occluders,
+                      visibility_floor=floors).search()
             if h.found:
                 break
         rnd.hide = h.describe()
@@ -188,6 +211,8 @@ def rework_scene(source: Scene, config: Config, cfg: ReworkConfig | None = None,
                 problems.append(f"contacts changed (lost {sorted(lost)}, gained {sorted(gained)})")
             if design_occluders and behind < cfg.min_design_coverage:
                 problems.append(f"only {behind:.0%} behind {design_occluders}")
+            if buried:
+                problems.append(f"objects less visible than designed: {buried}")
             result.reason = " and ".join(problems) + f"; {h.describe()}"
             break
         for name, pose in h.poses.items():
@@ -234,8 +259,11 @@ def rework(sources: list[str], config: Config, cfg: ReworkConfig | None = None, 
         log_path.write_text(json.dumps(history, indent=1, default=float))
         if not res.ok:
             continue
+        # one hidden object, as in the source design: the target; everything else observed (pinned, so
+        # finalize keeps the roles and reports objects the camera cannot see)
         for o in scene.dynamic_objects:
-            o.role_source = "measured"
+            o.role = "hidden" if o.name == res.target else "observed"
+            o.role_source = "authored"
         scene.metadata.update({"experiment": exp, "status": "authoring", "source": str(src.path),
                                "rework": json.dumps({"from": str(src.path), "edits": res.edits,
                                                       "displacement_mm": res.displacement_mm,

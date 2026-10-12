@@ -114,14 +114,18 @@ def _grid(max_v: float, step: float) -> np.ndarray:
 class Hider:
     def __init__(self, scene: Scene, target: str, camera: CameraSpec, cfg: HideConfig | None = None,
                  occluders: list[str] | None = None, device: str | None = None,
-                 intent: dict[tuple[str, str], float] | None = None, design_occluders: list[str] | None = None):
+                 intent: dict[tuple[str, str], float] | None = None, design_occluders: list[str] | None = None,
+                 visibility_floor: dict[str, float] | None = None):
         """``intent``: separations ``{(target, other): metres}`` that the target's contacts must match
         (the source design); without it the current contacts are kept. ``design_occluders``: the objects
         the target hides behind in the design; together they must keep covering most of it
-        (``min_design_coverage``), so the target is not simply moved behind something else."""
+        (``min_design_coverage``), so the target is not simply moved behind something else.
+        ``visibility_floor``: ``{object: fraction}`` each listed object must stay at least this visible
+        (an edit must not bury the objects the design shows, above all the physical cues)."""
         self.scene, self.target, self.cfg = scene, target, cfg or HideConfig()
         self.intent = intent or {}
         self.design_occluders = list(design_occluders or [])
+        self.visibility_floor = dict(visibility_floor or {})
         self.meter = OcclusionMeter(scene, camera, device=device)
         self.coarse = None
         if self.cfg.prefilter and camera.width >= 4 and camera.height >= 4:
@@ -186,6 +190,13 @@ class Hider:
             before = {k: v for k, v in before.items() if k not in governed}
         lost, gained = changed(before, after, touching=self.cfg.contact_tol, apart=2 * self.cfg.contact_tol)
         return not lost and not gained
+
+    def others_visible(self, poses) -> bool:
+        for name, floor in self.visibility_floor.items():
+            o = self.meter.measure(name, margin_px=0, poses=poses)
+            if o.silhouette and o.visible / o.silhouette < floor:
+                return False
+        return True
 
     def behind_design_occluders(self, occ) -> bool:
         if not self.design_occluders:
@@ -267,6 +278,8 @@ class Hider:
             if not o.hidden:
                 continue
             if not self.behind_design_occluders(o):
+                continue
+            if not self.others_visible(poses):
                 continue
             if not self.contacts_kept(moved, poses):
                 continue
