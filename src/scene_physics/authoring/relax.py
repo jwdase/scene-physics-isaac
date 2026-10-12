@@ -37,6 +37,10 @@ from scene_physics.scene.model import Scene
 _TMP_COUNTER = itertools.count()
 
 
+def _print(msg: str) -> None:
+    print(msg, flush=True)
+
+
 @dataclass
 class RelaxConfig:
     separate_seconds: float = 1.5  # phase 1: low gravity, overlaps pushed apart
@@ -156,7 +160,7 @@ def _set_gravity(g: float) -> None:
 
 
 def relax(scene: Scene, config: Config, cfg: RelaxConfig | None = None, *, workdir: str | Path | None = None,
-          log=print) -> RelaxReport:
+          log=None) -> RelaxReport:
     """Relax ``scene`` (its current poses) under ``config.physics``; the scene object is not changed.
 
     Isaac Sim must be running. ``workdir`` holds the temporary scene files (default: next to the scene).
@@ -164,6 +168,7 @@ def relax(scene: Scene, config: Config, cfg: RelaxConfig | None = None, *, workd
     from scene_physics.scene.usd_io import write_scene
 
     cfg = cfg or RelaxConfig()
+    log = log or _print
     t0 = time.time()
     physics = config.physics
     workdir = Path(workdir) if workdir else (scene.path.parent if scene.path else Path.cwd())

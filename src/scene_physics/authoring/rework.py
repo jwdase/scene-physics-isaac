@@ -35,6 +35,10 @@ from scene_physics.config import Config
 from scene_physics.scene.model import Scene
 
 
+def _print(msg: str) -> None:
+    print(msg, flush=True)
+
+
 @dataclass
 class ReworkConfig:
     margin_px: int = 2  # acceptance: target hidden with this many stimulus pixels to spare
@@ -117,12 +121,13 @@ def apply_edits(scene: Scene, edit: dict) -> None:
 
 
 def rework_scene(source: Scene, config: Config, cfg: ReworkConfig | None = None, *, edit: dict | None = None,
-                 workdir: str | Path | None = None, log=print) -> tuple[Scene, ReworkResult]:
+                 workdir: str | Path | None = None, log=None) -> tuple[Scene, ReworkResult]:
     """Rework one scene in memory (Isaac Sim must be running). Returns the new scene and the log."""
     from scene_physics.authoring import contacts, occlusion, relax
     from scene_physics.authoring.hide import Hider
 
     cfg = cfg or ReworkConfig()
+    log = log or _print
     edit = edit or {}
     t0 = time.time()
     scene = copy.deepcopy(source)
