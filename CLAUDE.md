@@ -28,6 +28,12 @@ Guidance for Claude Code in this repository. Read `README.md` first (workflow an
 - Replicator `orchestrator.step()` advances the timeline (capture-on-play); always pass `delta_time=0.0`.
 - A path-traced frame requested before any ray-traced frame comes back black; `isaac/rtx.py` warms up in
   ray-tracing mode.
+- The desktop holds about half of the local 8 GB card. Under that pressure RTX texture streaming serves the table's
+  wood from low-resolution mips, so the same scene renders sharp one day and smoothed the next:
+  `workflow._render_setup` (every render goes through it) turns streaming off and loads materials synchronously.
+- Opening stage after stage in one process accumulates RTX memory until frames fail (they repeat the previous
+  frame): release each stage first (`omni.usd.get_context().new_stage()` and a few `app.update()`), as
+  `sp study-renders` does. `sp review --leak` does not, and can run out of memory in PhysX after its renders.
 - With the GPU pipeline PhysX writes to Fabric, not USD: read poses through the tensor views, and write
   them back to USD explicitly (`SceneSimulator.write_poses_to_usd`).
 - A file Kit has opened stays in the layer registry; do not rewrite it in the same process (simulate a

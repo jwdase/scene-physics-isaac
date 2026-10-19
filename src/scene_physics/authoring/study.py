@@ -167,11 +167,10 @@ def render_study(scene_path: str | Path, config: Config, *, reveal: bool = False
     """Render the study pictures of one finished scene into its ``render/`` folder (see the module notes).
 
     Every picture is checked against the stimulus before it is written: the right objects show in its
-    segmentation (a frame RTX failed to render repeats the previous one), and the table keeps the wood grain it
-    has in the stimulus (a frame captured too soon after a change comes back smoothed). ``record["problems"]``
-    lists what failed.
+    segmentation (a frame RTX failed to render repeats the previous one), and its table has the same wood grain as
+    the stimulus's (a render made with streamed, low-resolution textures is smoothed, see ``_render_setup``).
+    ``record["problems"]`` lists what failed; nothing is written then.
     """
-    import carb
     import omni.usd
     from PIL import Image
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
@@ -203,14 +202,7 @@ def render_study(scene_path: str | Path, config: Config, *, reveal: bool = False
     table_px = np.isin(seg, list(statics))
     grain = detail(stimulus, table_px)
     cam = scene.camera.scaled(config.render.scale)
-    # Full-resolution textures, loaded before a frame renders (applies to stages opened from now on). With texture
-    # streaming, an 8 GB card shared with the desktop drops the table's wood grain to low-resolution mips after
-    # the first frames, and the pictures would not match the stimulus.
-    settings = carb.settings.get_settings()
-    settings.set("/rtx-transient/resourcemanager/enableTextureStreaming", False)
-    settings.set("/rtx/materialDb/syncLoads", True)
-    settings.set("/rtx/hydra/materialSyncLoads", True)
-    stage, renderer = workflow._render_setup(scene_path, scene, config, scale=config.render.scale)
+    stage, renderer = workflow._render_setup(scene_path, scene, config, scale=config.render.scale)  # full-res textures
     if (renderer.height, renderer.width) != stimulus.shape[:2]:
         raise ValueError(f"{out / 'rgb.png'} is {stimulus.shape[1]}x{stimulus.shape[0]}, the renders "
                          f"{renderer.width}x{renderer.height}")
@@ -225,8 +217,8 @@ def render_study(scene_path: str | Path, config: Config, *, reveal: bool = False
                 imageable.MakeVisible() if o.name in names else imageable.MakeInvisible()
 
     def capture(what: str, shown: set[str]):
-        """A frame of the current state, checked. The path tracer needs a frame to settle after a change (and
-        textures keep streaming in after a stage opens): the first frame is thrown away."""
+        """A frame of the current state, checked. The path tracer needs a frame to settle after a change: the
+        first frame is thrown away."""
         renderer.capture(quality)
         frame = renderer.capture(quality)
         ids = {int(i) for i in np.unique(frame.segmentation)} - {0} - statics
@@ -234,9 +226,13 @@ def render_study(scene_path: str | Path, config: Config, *, reveal: bool = False
         if ids != wanted:
             names = {int(o.segmentation_id): o.name for o in scene}
             problems.append(f"{what}: shows {sorted(names.get(i, str(i)) for i in ids)}, should show {sorted(shown)}")
+        # the table must look the same in every picture and in the stimulus (participants see one after the other)
         ratio = detail(frame.rgb, table_px & np.isin(frame.segmentation, list(statics))) / max(grain, 1e-6)
         if ratio < 0.8:
             problems.append(f"{what}: the table is smoothed ({ratio:.2f} of the stimulus's wood grain)")
+        elif ratio > 1.25:
+            problems.append(f"{what}: the stimulus's table is smoothed ({1 / ratio:.2f} of this picture's wood "
+                            "grain): render the stimulus again (sp render)")
         return frame, round(ratio, 3)
 
     # the target in red, wherever it appears (the look's scope lives in the session layer too)

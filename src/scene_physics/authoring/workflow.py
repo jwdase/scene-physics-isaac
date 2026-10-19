@@ -95,12 +95,20 @@ def import_scene(source: str | Path, config: Config, *, name: str | None = None,
 
 
 def _render_setup(scene_path: Path, scene: Scene, config: Config, *, scale: float):
+    import carb
     import omni.usd
 
     from scene_physics.isaac import app, environment, rtx
 
     from isaacsim.core.simulation_manager import SimulationManager
 
+    # Full-resolution textures, loaded before a frame renders (applies to the stage opened next). With texture
+    # streaming, a GPU shared with a desktop serves the table's wood grain from low-resolution mips under memory
+    # pressure, and the same scene renders sharp one day and smoothed the next.
+    settings = carb.settings.get_settings()
+    settings.set("/rtx-transient/resourcemanager/enableTextureStreaming", False)
+    settings.set("/rtx/materialDb/syncLoads", True)
+    settings.set("/rtx/hydra/materialSyncLoads", True)
     ctx = omni.usd.get_context()
     if not ctx.open_stage(str(scene_path)):
         raise RuntimeError(f"Isaac Sim could not open {scene_path}")
