@@ -1,0 +1,23 @@
+# practice: scenes for the practice trials of the human study (testing-website), composed like data-set-4
+# (`sp compose experiments/practice/sceneNNN.toml --exp practice`). They are made to span how visible the
+# physical evidence of the target is (salient practice trials come from data-set-3: scene007, scene002), so
+# unlike data-set-4 they need not pass every composing rule: scene001's evidence is deliberately small and
+# scene002 has none.
+experiment = "practice"
+description = "Practice scenes for the human study: a minute physical cue (scene001) and none at all (scene002)."
+
+[camera]
+# the data-set / data-set-2 / data-set-3 / data-set-4 camera (p01_f03)
+name = "p01_f03"
+width = 640
+height = 480
+fov_degree = 34
+eye = [0.0, -1.6628509212474696, 1.1534498743901909]
+target = [0.0, 0.0, 0.8]
+up = [0.0, 0.0, 1.0]
+
+[physics]
+# as data-set-3 and data-set-4: the table collides as its bounding box, 32/8 solver iterations
+static_approximation = "boundingCube"
+position_iterations = 32
+velocity_iterations = 8

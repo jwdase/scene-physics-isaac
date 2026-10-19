@@ -1,0 +1,36 @@
+name = "scene002"
+title = "Can behind the pitcher"
+relationship = "none: the target (can) stands behind the occluder (pitcher) and touches nothing"
+idea = """No cue at all, for practice. A can stands a few centimetres behind a pitcher without touching anything,
+so nothing in the picture shows where it is; the toaster would hide it just as well. Without the can nothing
+moves."""
+target = "can"
+apart = [["can", "pitcher"]]
+
+[[object]]
+name = "pitcher"
+asset = "jug01"
+at = [-0.20, 0.02]
+yaw = 0                      # handle to the right, away from the can behind the body
+
+[[object]]
+name = "can"
+asset = "b03_cocacola_can_cage"
+at = [-0.20, 0.17]
+
+[[object]]
+name = "toaster"
+asset = "toaster"
+at = [0.20, 0.13]
+
+[[object]]
+name = "mug"
+asset = "coffeemug"
+at = [0.12, -0.20]
+yaw = 160
+
+[[object]]
+name = "banana"
+asset = "banana_fix2"
+at = [-0.08, -0.20]
+yaw = -15

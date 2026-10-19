@@ -1,0 +1,43 @@
+name = "scene001"
+title = "Slightly tilted bowl"
+relationship = "on top (minute): the occluder (bowl) rests with the back of its foot on the hidden target (stone coaster)"
+idea = """A minute cue, for practice. The big bowl stands a few degrees off level: the back right of its foot rests
+on a stone coaster hidden under the bowl, so the bowl tips slightly towards the front left. Nothing else gives the
+coaster away, and the loaf and the jug offer hiding places as large. Without the coaster the bowl settles flat."""
+target = "coaster"
+touching = [["bowl", "coaster"]]
+
+[[object]]
+name = "coaster"
+asset = "round_coaster_stone"
+at = [0.225, 0.045]
+
+[[object]]
+name = "bowl"
+on = "coaster"
+asset = "int_kitchen_accessories_le_creuset_bowl_30cm"
+rotate = [[[0.866, -0.5, 0], 4]]   # lifts the back right (towards the coaster); relaxation finds the rest
+at = [0.17, -0.05]
+
+[[object]]
+name = "loaf"
+asset = "b03_loafbread"
+at = [-0.22, 0.10]
+yaw = -6
+
+[[object]]
+name = "jug"
+asset = "jug04"
+at = [-0.02, 0.22]
+
+[[object]]
+name = "mug"
+asset = "coffeemug"
+at = [-0.12, -0.20]
+yaw = 200
+
+[[object]]
+name = "banana"
+asset = "banana_fix2"
+at = [0.33, -0.27]
+yaw = 25

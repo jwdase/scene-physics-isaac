@@ -102,6 +102,20 @@ without its target. data-set-4 was made this way: see [`docs/DATA_SET_4.md`](doc
 written up in [`docs/COMPOSING_SCENES.md`](docs/COMPOSING_SCENES.md), and the `scene-composer` agent
 (`.claude/agents/scene-composer.md`) follows it: in Claude Code, ask it to add scenes to a dataset.
 
+**Pictures for the human study.** The study website (testing-website) shows, before every stimulus, the target
+alone in red at the centre of the table, then the empty table, and after a practice trial where the target was.
+`sp study-renders` renders them through the scene camera with the stimulus's look (path traced), as render-time
+edits only (the scene file is not changed), and checks each one: the right objects in its segmentation, the
+table's wood grain the same as in the stimulus (neither smoothed), the target centred on the table (within 4 px):
+
+```bash
+uv run sp study-renders data-set-3/scene0* data-set-4/scene003            # render/target_card.png, empty_table.png
+uv run sp study-renders data-set-3/scene007 practice/scene001 --reveal     # + render/reveal.png (practice)
+```
+
+`render/study.json` records the card's pose and check and, for the reveal, the objects it fades. The practice
+scenes are described in [`docs/PRACTICE.md`](docs/PRACTICE.md).
+
 ## The scene file
 
 One USD file per scene; open it in Isaac Sim and press Play and it simulates. Everything the old
