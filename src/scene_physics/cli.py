@@ -15,6 +15,7 @@
     uv run sp preview experiments/data-set-4/scene011.toml --exp data-set-4    # compose a spec, check it (CPU, s)
     uv run sp compose experiments/data-set-4/scene011.toml --exp data-set-4    # + physics: relax, evidence, ...
     uv run sp review data-set-4                                                # check finished scenes, GIFs
+    uv run sp study-renders data-set-3/scene001 --reveal       # study pictures: red target card, empty table, reveal
 
 Scenes can be given as a path (``scene.usd`` or its directory) or as ``<experiment>/<scene>``, looked
 up under ``data/`` and then ``authoring/``.
@@ -163,6 +164,26 @@ def cmd_render(args):
 
     path = paths.resolve_scene(args.scene)
     workflow.render_scene(path, _config(args, path), out_dir=args.out, quality=args.quality)
+
+
+def cmd_study_renders(args):
+    from scene_physics import paths
+    from scene_physics.authoring import study
+
+    failed, problems = [], []
+    for spec in args.scenes:
+        try:
+            path = paths.resolve_scene(spec)
+            rec = study.render_study(path, _config(args, path), reveal=args.reveal, quality=args.quality,
+                                     color=tuple(args.color) if args.color else study.RED)
+            problems += [f"{path.parent.name}: {p}" for p in rec["problems"]]
+        except Exception as exc:  # keep going through a dataset; report at the end
+            failed.append(spec)
+            print(f"[sp] FAILED {spec}: {exc}", flush=True)
+    for p in problems:
+        print(f"[sp] check: {p}", flush=True)
+    if failed or problems:
+        raise SystemExit(f"{len(failed)} of {len(args.scenes)} scenes failed, {len(problems)} card check(s) failed")
 
 
 def cmd_open(args):
@@ -478,6 +499,16 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--out")
     common(s)
     s.set_defaults(func=cmd_render, needs_kit=True)
+
+    s = sub.add_parser("study-renders", help="pictures for the human study: the target alone in red at the centre of "
+                                             "the table, the empty table, and (--reveal) where the target is")
+    s.add_argument("scenes", nargs="+")
+    s.add_argument("--reveal", action="store_true", help="also the reveal shown after practice trials")
+    s.add_argument("--color", nargs=3, type=float, metavar=("R", "G", "B"), help="linear RGB of the target "
+                                                                                 "(default: the study red)")
+    s.add_argument("--quality", choices=["final", "preview", "fast"], default="final")
+    common(s)
+    s.set_defaults(func=cmd_study_renders, needs_kit=True)
 
     s = sub.add_parser("open", help="edit a scene in the Isaac Sim editor")
     s.add_argument("scene")
