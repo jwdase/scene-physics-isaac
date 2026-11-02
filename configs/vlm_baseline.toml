@@ -46,6 +46,22 @@ api_key_env = "OPENAI_API_KEY"
 effort = "high"                # reasoning.effort
 max_tokens = 32000
 
+# Cheaper GPT-6 models (prices from secondary sources, 2026-11-02, $ per 1M tokens in / cached / out):
+# astra 10 / 1 / 50, 6.1-sol 2 / 0.20 / 10, 6.1-terra 1 / 0.05 / 5.
+[models.gpt-sol]
+provider = "openai"
+model = "gpt-6.1-sol"
+api_key_env = "OPENAI_API_KEY"
+effort = "high"
+max_tokens = 32000
+
+[models.gpt-terra]
+provider = "openai"
+model = "gpt-6.1-terra"        # OpenAI's fast model for visual reasoning
+api_key_env = "OPENAI_API_KEY"
+effort = "high"
+max_tokens = 32000
+
 [models.gemini]
 provider = "google"
 model = "gemini-3.1-pro-preview"
