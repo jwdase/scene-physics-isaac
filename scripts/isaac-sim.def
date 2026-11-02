@@ -1,0 +1,77 @@
+# Isaac Sim 6.1 runtime container for Rocky 8 / glibc 2.28 clusters (MIT ORCD).
+#
+# The Isaac Sim 6.1 wheels are manylinux_2_35 (Ubuntu 22.04+); the cluster nodes are
+# Rocky 8 with glibc 2.28, so the wheels cannot run on the host at all. This image
+# supplies a new enough glibc (Ubuntu 24.04, 2.39) and the shared libraries Kit
+# dlopens; the pinned wheels themselves are installed by uv into a normal venv on
+# the shared filesystem (see scripts/isaac.sh), so the lockfile stays the source of
+# truth and the image holds no Python packages.
+#
+#   module load apptainer
+#   env -u APPTAINER_BINDPATH apptainer build \
+#       /orcd/pool/006/$USER/containers/isaac-sim-6.1.sif scripts/isaac-sim.def
+#
+# APPTAINER_BINDPATH must be unset for the build only: the site value (/orcd,/nfs)
+# cannot be bound into the stock Ubuntu rootfs before %post creates those mount points.
+Bootstrap: docker
+From: ubuntu:24.04
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -qq
+
+    # Isaac Sim 6.1 wheels are built for CPython 3.12, which is Ubuntu 24.04's default.
+    CORE="ca-certificates curl git unzip python3.12 python3.12-venv python3.12-dev libpython3.12"
+    # Shared libraries Kit and its extensions dlopen. The no-rendering mode used by
+    # `sp infer` / `sp lossmap` needs far fewer, but the full set keeps the GUI and RTX
+    # paths usable and costs little.
+    GL="libgl1 libglx-mesa0 libegl1 libgles2 libglu1-mesa libglvnd0 libopengl0 libvulkan1 libgbm1 libdrm2"
+    X11="libx11-6 libxext6 libxrender1 libxrandr2 libxinerama1 libxcursor1 libxi6 libxss1
+         libxcomposite1 libxdamage1 libxfixes3 libxtst6 libxkbcommon0 libxkbcommon-x11-0 libsm6 libice6"
+    XCB="libxcb1 libxcb-glx0 libxcb-keysyms1 libxcb-image0 libxcb-shm0 libxcb-icccm4 libxcb-sync1
+         libxcb-xfixes0 libxcb-shape0 libxcb-randr0 libxcb-render-util0 libxcb-util1 libxcb-xinerama0
+         libxcb-xkb1 libxcb-cursor0 libxcb-dri3-0 libxcb-present0"
+    MISC="libfontconfig1 libfreetype6 libdbus-1-3 libexpat1 libnss3 libnspr4 libatk1.0-0t64
+          libatk-bridge2.0-0t64 libcups2t64 libpango-1.0-0 libcairo2 libasound2t64 libpulse0
+          libgomp1 libusb-1.0-0 libsqlite3-0 libtbb12 libssl3 libcurl4 zlib1g libgtk-3-0t64
+          libxt6t64 libxmu6 libxaw7"
+
+    # Install in bulk; fall back to one by one so a single renamed package cannot
+    # silently drop the rest (Ubuntu 24.04 renamed several to the *t64 variants).
+    if ! apt-get install -y -qq --no-install-recommends $CORE $GL $X11 $XCB $MISC > /dev/null 2>&1; then
+        echo "bulk install failed, installing package by package"
+        for p in $CORE $GL $X11 $XCB $MISC; do
+            apt-get install -y -qq --no-install-recommends "$p" > /dev/null 2>&1 \
+                || echo "MISSING PACKAGE: $p"
+        done
+    fi
+
+    # Vulkan ICD manifest. apptainer --nv injects the driver's libGLX_nvidia.so.0 (and puts it on
+    # LD_LIBRARY_PATH) but not the host's /usr/share/vulkan/icd.d manifest, so without this Kit's
+    # RTX layer reports "vkCreateInstance failed / Vulkan 1.1 is not supported" and no GPU device is
+    # created at all. The soname (not the host's absolute /usr/lib64 path) is what resolves inside.
+    mkdir -p /usr/share/vulkan/icd.d
+    cat > /usr/share/vulkan/icd.d/nvidia_icd.json <<'JSON'
+{
+    "file_format_version": "1.0.1",
+    "ICD": {
+        "library_path": "libGLX_nvidia.so.0",
+        "api_version": "1.3.0"
+    }
+}
+JSON
+
+    # Mount points for the site bind paths (APPTAINER_BINDPATH=/orcd,/nfs) and the
+    # cluster's other filesystems, plus /usr/bin/python3 for convenience.
+    mkdir -p /orcd /nfs /scratch /pool /home/jwdase
+    ln -sf /usr/bin/python3.12 /usr/local/bin/python3
+    ln -sf /usr/bin/python3.12 /usr/local/bin/python
+
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+%test
+    python3.12 --version
+    ldd --version | head -1
+
+%labels
+    Description Isaac Sim 6.1 (pip wheels) runtime base: Ubuntu 24.04 + Kit's shared libraries

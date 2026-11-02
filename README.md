@@ -130,13 +130,54 @@ experiment `experiments/<exp>.toml`, and `--config extra.toml` for a run.
 
 ```bash
 git clone git@github.com:jwdase/scene-physics-isaac.git && cd scene-physics-isaac
-git checkout rewrite/isaac-sim
 uv sync                                   # installs the pinned Isaac Sim 6.1 environment (~25 GB)
 export OMNI_KIT_ACCEPT_EULA=YES
 rsync -a <workstation>:scene-physics-isaac/data/ data/      # or: export SCENE_PHYSICS_DATA=/scratch/...
 uv run pytest -m isaac && uv run pytest -m multiworld       # the simulator works, worlds are independent
 uv run sp infer data/data-set/scene0* --num-worlds 64       # one Isaac Sim session for all scenes
 ```
+
+### On a cluster node (MIT ORCD: Rocky 8 + H100)
+
+The Isaac Sim 6.1 wheels are `manylinux_2_35` (glibc 2.35+, Ubuntu 22.04 and newer); the ORCD compute
+nodes run Rocky 8 with **glibc 2.28**, so plain `uv sync` fails with *"isaacsim (v6.1.0.0) only has
+wheels for manylinux_2_35_x86_64"* — and the binaries could not run on the host even if it did.
+`scripts/isaac-sim.def` builds a small Apptainer image (Ubuntu 24.04: glibc 2.39, CPython 3.12, the
+shared libraries Kit dlopens, a Vulkan ICD manifest for the injected driver) and `scripts/isaac.sh`
+runs any command inside it. The environment stays the plain `uv` venv from `uv.lock` and the GPU comes
+from the host driver through `--nv`, so nothing about the pinned simulator changes.
+
+```bash
+srun -p ou_bcs_high --gres=gpu:1 --cpus-per-task=8 --mem=64G -t 4:00:00 --pty bash   # a GPU node
+module load apptainer
+mkdir -p /orcd/pool/006/$USER/containers
+env -u APPTAINER_BINDPATH apptainer build \
+    /orcd/pool/006/$USER/containers/isaac-sim-6.1.sif scripts/isaac-sim.def   # ~2 min
+scripts/isaac.sh uv sync --locked          # the pinned environment, ~25 GB, ~8 min
+
+scripts/isaac.sh uv run pytest                   # anything else, exactly as on a workstation
+scripts/isaac.sh uv run pytest -m isaac
+scripts/isaac.sh uv run pytest -m multiworld
+scripts/isaac.sh uv run sp infer data-set/scene017 --num-worlds 64 --iterations 50
+sbatch scripts/infer.sbatch data-set/scene017 --num-worlds 64    # ... or as a batch job
+```
+
+`APPTAINER_BINDPATH` has to be unset **for the build only**: the ORCD module sets it to `/orcd,/nfs`,
+which cannot be bound into the stock Ubuntu rootfs before `%post` creates those mount points.
+
+An Isaac Sim environment is ~25 GB against a 200 GB home quota, so `scripts/isaac.sh` keeps the venv,
+the uv cache and Kit's caches under `$SP_POOL` (default `/orcd/pool/006/$USER`):
+
+| path | what | override |
+|---|---|---|
+| `$SP_POOL/containers/isaac-sim-6.1.sif` | the image | `SP_SIF` |
+| `$SP_POOL/envs/scene-physics-isaac` | the venv | `UV_PROJECT_ENVIRONMENT` |
+| `$SP_POOL/uv_cache` | uv's cache, on the venv's filesystem so wheels are hardlinked | `UV_CACHE_DIR` |
+| `$SP_POOL/cache` | `XDG_CACHE_HOME`: Kit, OptiX and Warp kernel caches | `SP_KIT_CACHE` |
+
+Data and results stay in the repository (`data/`, `results/`); move them with `SCENE_PHYSICS_DATA` /
+`SCENE_PHYSICS_RESULTS` if they outgrow the quota. The data-centre GPUs have no RT cores, so inference
+(no RTX) is what they are for; path-traced stimuli are still best rendered on the workstation.
 
 `sp infer` and `sp lossmap` start Isaac Sim with RTX rendering switched off (the model sees the scene
 through its own Warp ray caster), so they only need CUDA and PhysX; the stimulus renders (`sp finalize`,

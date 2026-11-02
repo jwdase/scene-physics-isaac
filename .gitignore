@@ -232,3 +232,4 @@ __marimo__/
 /.scratch/
 # Isaac Sim / Kit caches
 *.kit.log
+/logs/*.log
