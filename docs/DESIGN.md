@@ -45,6 +45,19 @@ GPU.
   most ~2 micrometres, often exactly 0 (co-located env-ID worlds and spaced grid worlds behave the same).
   The old XPBD path varied by millimetres.
 
+**Measured on the inference server (MIT ORCD `node1702`: H100 80 GB, driver 590.48, PhysX GPU,
+November 2026; the pinned wheels run unchanged inside `scripts/isaac-sim.def`):**
+
+* `data-set/scene017` (6 dynamic objects, convex decomposition) with **64 worlds**: building the worlds
+  and the likelihood takes 3.6 s, and an iteration takes 0.85 s — 0.84 s of it the PhysX rollout (2.5 s
+  of simulated time, 300 steps, all 64 worlds at once, so the cost per world is almost free) and 6.5 ms
+  the ray-cast render plus the point-cloud likelihood of all 64 worlds (0.1 ms per world). 50 iterations
+  take 44 s. A brute-force loss map (51x51 = 2601 cells, 64 per batch) takes 59 s.
+* The two-world isolation / determinism checks and the world-slot test pass unchanged on this GPU
+  (`pytest -m "isaac or multiworld"`): a hypothesis scores the same whichever world slot it lands in
+  (visual to 1e-6, displacement to 1e-4 m).
+* Kit boots in ~20 s with warm caches (the first boot takes ~2 min while it builds them).
+
 Decision: **PhysX**, GPU pipeline, TGS solver, enhanced determinism, convex decomposition for dynamic
 objects, triangle-mesh colliders for static ones. Newton remains one config switch away should its
 Isaac integration mature (differentiability, 10k+ worlds), since the scene format is plain UsdPhysics.
@@ -158,3 +171,17 @@ for each iteration (Gibbs over objects with a sampled role):
 
 The sampler, proposal kernels, schedules and rank composite are ports of the old code, so results are
 comparable; the documented differences are in `docs/MIGRATION.md`.
+
+**What the visual channel can and cannot say about a hidden object.** The likelihood sums over the
+*observed* pixels, so a hypothesis is penalised only where it changes what the camera already sees: a
+pose in which the target stays completely out of sight scores exactly 0, the same as the truth. For a
+target that is 0% visible this makes the visual channel flat over whole regions, and the physics
+channel is flat too wherever the table supports the object, so the posterior concentrates on the
+*largest* consistent region rather than on the truth. Measured on `data-set/scene017` (`sp lossmap
+--resolution 0.02`, 2601 poses): 229 of them hide the coffeemug perfectly, in three disconnected
+plateaus — 179 cells behind `jug01`, 26 cells behind `jug04` (the truth's own hiding place) and 24
+behind the shark. A 64-world, 50-iteration `sp infer` run converges into the largest plateau, 73 cm
+from the truth, with a 10 cm posterior spread. The run is working as designed; the distance to truth
+is a statement about the scene's ambiguity, not about the sampler, and it is what makes these scenes
+worth putting to people. Report `summary.json`'s posterior spread and the loss map alongside any
+error against truth.

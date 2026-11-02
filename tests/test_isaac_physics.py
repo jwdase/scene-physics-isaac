@@ -3,17 +3,40 @@
 The two-world test is a *physics* isolation check (2 worlds, a few hundred steps), not inference.
 """
 
+import os
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from scene_physics import paths
 from scene_physics.config import PhysicsConfig, SettleConfig
 from scene_physics.scene import Mesh, Scene, SceneObject, importers, usd_io
 from scene_physics.camera import DEFAULT_CAMERA
 
 pytestmark = pytest.mark.isaac
-LEGACY_STAGE = Path("/home/jdase/Desktop/Coding/data-pipeline/stage/scene001.usdc")
+
+
+def _legacy_stage() -> Path | None:
+    """A legacy Blender export to settle, or None if this machine has none.
+
+    ``SCENE_PHYSICS_LEGACY_STAGE`` wins; otherwise a sibling ``data-pipeline`` checkout is
+    searched (the export is named ``scene001.usdc`` on some machines, ``scene_001.usdc`` on
+    others). Without one the test is skipped rather than failed, since the file is not in
+    this repository.
+    """
+    env = os.environ.get("SCENE_PHYSICS_LEGACY_STAGE")
+    if env:
+        return Path(env) if Path(env).exists() else None
+    for base in (paths.root().parent / "data-pipeline" / "stage",
+                 Path.home() / "Desktop/Coding/data-pipeline/stage"):
+        for name in ("scene001.usdc", "scene_001.usdc"):
+            if (base / name).is_file():
+                return base / name
+    return None
+
+
+LEGACY_STAGE = _legacy_stage()
 
 
 def box(hx, hy, hz):
@@ -48,7 +71,7 @@ def test_settle_stack(isaac, tmp_path):
     sim.stop()
 
 
-@pytest.mark.skipif(not LEGACY_STAGE.exists(), reason="legacy stage file not present")
+@pytest.mark.skipif(LEGACY_STAGE is None, reason="no legacy stage export on this machine")
 def test_real_scene_is_nearly_at_rest(isaac, tmp_path):
     from scene_physics.isaac.simulator import SceneSimulator
 
