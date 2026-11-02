@@ -27,6 +27,9 @@ models = ["gemini-robotics", "cosmos"]
 # ---- models ----
 # provider: anthropic | openai (Responses API) | google (google-genai) | openai-chat (any OpenAI-compatible
 # chat-completions server: NVIDIA's hosted API or a vLLM/NIM server) | mock (offline test).
+# google models take `vertexai = true` to go through Google Cloud's Agent Platform (formerly Vertex AI, billed
+# to the Cloud billing account) instead of the Gemini API (prepaid credit bought in AI Studio); the key must
+# then be allowed to call the Agent Platform API.
 # Model IDs as of 2026-11-02; check them with `uv run scripts/vlm_baseline.py check`.
 
 [models.opus]

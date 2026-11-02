@@ -72,6 +72,7 @@ class ModelSpec:
     temperature: float | None = None
     top_p: float | None = None
     extra_body: dict = field(default_factory=dict)
+    vertexai: bool = False  # google: Agent Platform (formerly Vertex AI) instead of the Gemini API
 
     @classmethod
     def from_toml(cls, key: str, d: dict) -> "ModelSpec":
@@ -496,7 +497,7 @@ class GoogleChat:
 
         self.types = types
         # kept on self: the chat only holds the client's API module, and a collected client closes its connection
-        self.client = genai.Client(api_key=os.environ[spec.api_key_env])
+        self.client = genai.Client(api_key=os.environ[spec.api_key_env], vertexai=spec.vertexai)
         thinking = types.ThinkingConfig(include_thoughts=True,
                                         **({"thinking_level": spec.effort} if spec.effort else {}))
         config = types.GenerateContentConfig(thinking_config=thinking, max_output_tokens=spec.max_tokens)
