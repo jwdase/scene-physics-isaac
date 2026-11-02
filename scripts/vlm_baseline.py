@@ -495,11 +495,12 @@ class GoogleChat:
         from google.genai import types
 
         self.types = types
-        client = genai.Client(api_key=os.environ[spec.api_key_env])
+        # kept on self: the chat only holds the client's API module, and a collected client closes its connection
+        self.client = genai.Client(api_key=os.environ[spec.api_key_env])
         thinking = types.ThinkingConfig(include_thoughts=True,
                                         **({"thinking_level": spec.effort} if spec.effort else {}))
         config = types.GenerateContentConfig(thinking_config=thinking, max_output_tokens=spec.max_tokens)
-        self.chat = client.chats.create(model=spec.model, config=config)
+        self.chat = self.client.chats.create(model=spec.model, config=config)
 
     def send(self, parts: list[Part]) -> Reply:
         types = self.types
