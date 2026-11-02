@@ -116,6 +116,10 @@ uv run sp study-renders data-set-3/scene007 practice/scene001 --reveal     # + r
 `render/study.json` records the card's pose and check and, for the reveal, the objects it fades. The practice
 scenes are described in [`docs/PRACTICE.md`](docs/PRACTICE.md).
 
+**The VLM baseline.** `scripts/vlm_baseline.py` gives the study's stimuli to VLMs and robotics models through
+their APIs (Claude, GPT, Gemini, Gemini Robotics-ER, NVIDIA Cosmos), with the participants' procedure and
+practice, and scores their answers like participants' clicks; see [`docs/VLM_BASELINE.md`](docs/VLM_BASELINE.md).
+
 ## The scene file
 
 One USD file per scene; open it in Isaac Sim and press Play and it simulates. Everything the old

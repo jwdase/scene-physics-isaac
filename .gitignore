@@ -232,3 +232,5 @@ __marimo__/
 /.scratch/
 # Isaac Sim / Kit caches
 *.kit.log
+# API keys for scripts/vlm_baseline.py (template: configs/vlm_keys.env.example)
+/configs/vlm_keys.env

@@ -1,0 +1,138 @@
+# VLM / robotics-model baseline for the hidden-object study (scripts/vlm_baseline.py, docs/VLM_BASELINE.md).
+# Paths are relative to this file. API keys go in configs/vlm_keys.env (not committed), not here.
+
+# The testing-website's built stimuli (`uv run study-prepare` there): manifest.json, and per scene
+# image.png (the stimulus), card.jpg (target card), empty.jpg (empty table), reveal.jpg (practice), map.json.
+stimuli = "../../testing-website/stimuli"
+out_dir = "../results/vlm"
+keys_file = "vlm_keys.env"
+
+workers = 4          # scenes queried in parallel per model
+retries = 4          # attempts per API call on transient errors (rate limits, 5xx, timeouts)
+
+# Practice scenes, in order, run before every test query with the feedback participants get. Empty: the
+# website's practice order (manifest order: ds3-scene007, pr-scene001, pr-scene002, ds3-scene002).
+practice = []
+
+# A choice is correct when the chosen object hides at least this fraction of the target's outline: the
+# website's `correct_min_coverage`.
+correct_min_coverage = 0.05
+
+[tasks.occluder]
+models = ["opus", "gpt", "gemini", "gemini-robotics", "cosmos"]
+
+[tasks.coord]
+models = ["gemini-robotics", "cosmos"]
+
+# ---- models ----
+# provider: anthropic | openai (Responses API) | google (google-genai) | openai-chat (any OpenAI-compatible
+# chat-completions server: NVIDIA's hosted API or a vLLM/NIM server) | mock (offline test).
+# Model IDs as of 2026-11-02; check them with `uv run scripts/vlm_baseline.py check`.
+
+[models.opus]
+provider = "anthropic"
+model = "claude-opus-5-5"
+api_key_env = "ANTHROPIC_API_KEY"
+effort = "high"                # output_config.effort; thinking is always on (adaptive) on Opus 5.5
+max_tokens = 32000
+
+[models.gpt]
+provider = "openai"
+model = "gpt-6-astra"          # OpenAI's GPT-6 flagship; gpt-6.1-terra is the newer fast visual model
+api_key_env = "OPENAI_API_KEY"
+effort = "high"                # reasoning.effort
+max_tokens = 32000
+
+[models.gemini]
+provider = "google"
+model = "gemini-3.1-pro-preview"
+api_key_env = "GEMINI_API_KEY"
+effort = "high"                # thinking_level
+max_tokens = 32768
+
+[models.gemini-robotics]
+provider = "google"
+model = "gemini-robotics-er-2-preview"
+api_key_env = "GEMINI_API_KEY"
+effort = "high"                # thinking_level (Google suggests "medium" for latency; accuracy matters here)
+max_tokens = 32768
+
+[models.cosmos]
+provider = "openai-chat"
+# NVIDIA's hosted API serves Cosmos Reason 2 (its /v1/models listed only this Cosmos model on 2026-11-02).
+# Its successor, the Cosmos 3 reasoner (nvidia/cosmos3-nano-reasoner), is download-only: serve it with vLLM or
+# NIM on the inference server and point base_url there (e.g. "http://<server>:8000/v1").
+model = "nvidia/cosmos-reason2-8b"
+base_url = "https://integrate.api.nvidia.com/v1"
+api_key_env = "NVIDIA_API_KEY"
+max_tokens = 8192
+temperature = 0.6              # NVIDIA's reasoning defaults for the Cosmos 3 reasoner
+top_p = 0.95
+extra_body = { top_k = 20 }
+
+[models.mock]
+provider = "mock"              # answers at random, no API: tests the pipeline and the scoring
+model = "mock"
+
+# ---- prompts ----
+# Every model gets these exact texts. The first message is `intro`, then practice trials with feedback,
+# then the test trial, each a new turn of one conversation; every test scene is its own conversation.
+# Placeholders: {n_practice}, {i}, {n}, {target}, {chosen}, {where}, {target_point}; {{ }} is a literal brace.
+
+[prompts]
+practice_header = "Practice image {i} of {n}."
+test_header = "Test image."
+card = "This is the target: the {target}. It is hidden in the next image."
+empty = "The empty table."
+reveal = "Where the target was: the objects that hid it are see-through, and the target, in red, is behind them."
+unreadable = "No answer could be read from your reply."
+
+[prompts.occluder]
+intro = """In this task you see images of a table with several objects on it. One more object, the target, is \
+also on the table, but you cannot see it: it is completely hidden behind one of the objects.
+
+Your task: choose the object you think is blocking the hidden target.
+
+Every image goes the same way:
+1. You are shown the target, in red, on its own in the middle of the table, so you know what you are looking for.
+2. You are shown the empty table.
+3. You are shown the image, and you choose the object you think is blocking the target.
+
+You start with {n_practice} practice images. After each one you are told whether your answer was right and shown \
+where the target was. Then comes the test image.
+
+Answer by looking at the images and reasoning about them; do not write or run code. You may think it through \
+first. End your reply with one line of JSON:
+{{"object": "<the object you choose>", "point": [y, x]}}
+"point" is a point on the object you choose, as [y, x] normalized to 0-1000: y is 0 at the top edge of the image \
+and 1000 at the bottom edge, x is 0 at the left edge and 1000 at the right edge."""
+image = """The image. Which object is blocking the hidden {target}? End your reply with the JSON line \
+{{"object": "<the object you choose>", "point": [y, x]}}."""
+correct = "Correct! The target was hidden by the {where}."
+wrong = "Not this time: you chose the {chosen}. The target was hidden by the {where}."
+missing = "The target was hidden by the {where}."
+
+[prompts.coord]
+intro = """In this task you see images of a table with several objects on it. One more object, the target, is \
+also on the table, but you cannot see it: it is completely hidden behind the objects in front of it.
+
+Your task: point to where the hidden target is in the image, that is, to the centre of the target as it would \
+appear if the objects in front of it were see-through.
+
+Every image goes the same way:
+1. You are shown the target, in red, on its own in the middle of the table, so you know what you are looking for.
+2. You are shown the empty table.
+3. You are shown the image, and you point to where the target is.
+
+You start with {n_practice} practice images. After each one you are told where the target was. Then comes the \
+test image.
+
+Answer by looking at the images and reasoning about them; do not write or run code. You may think it through \
+first. End your reply with one line of JSON:
+{{"point": [y, x]}}
+"point" is [y, x] normalized to 0-1000: y is 0 at the top edge of the image and 1000 at the bottom edge, x is 0 at \
+the left edge and 1000 at the right edge."""
+image = """The image. Where is the hidden {target}? End your reply with the JSON line {{"point": [y, x]}}."""
+hit = "Your point was on the target. Its centre was at [y, x] = {target_point}."
+miss = "Your point was not on the target. Its centre was at [y, x] = {target_point}."
+missing = "The target's centre was at [y, x] = {target_point}."
