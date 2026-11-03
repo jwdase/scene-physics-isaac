@@ -57,6 +57,13 @@ November 2026; the pinned wheels run unchanged inside `scripts/isaac-sim.def`):*
   (`pytest -m "isaac or multiworld"`): a hypothesis scores the same whichever world slot it lands in
   (visual to 1e-6, displacement to 1e-4 m).
 * Kit boots in ~20 s with warm caches (the first boot takes ~2 min while it builds them).
+* A whole-dataset sweep (`scripts/dataset-infer.sbatch`, `node3909`: **A100 80 GB PCIe**, November
+  2026): 64 worlds and 50 iterations cost a median 1.05 s an iteration (0.57-1.37 s depending on the
+  scene) against the H100's 0.85 s, plus a median 4.2 s to build the worlds, so a scene takes about
+  65 s. The 65 scenes of `data-set-3` took 1 h 12 min of wall time in one Kit session, the 7 of
+  `data-set-4` 10 min. Kit's **first** boot on a node it has not run on takes ~317 s, not ~20 s, while
+  the 25 GB environment and the caches come off `$SP_POOL` over NFS; a second job on the same node
+  boots in 13 s. Size `sbatch --time` for the cold boot.
 
 Decision: **PhysX**, GPU pipeline, TGS solver, enhanced determinism, convex decomposition for dynamic
 objects, triangle-mesh colliders for static ones. Newton remains one config switch away should its
@@ -184,4 +191,7 @@ behind the shark. A 64-world, 50-iteration `sp infer` run converges into the lar
 from the truth, with a 10 cm posterior spread. The run is working as designed; the distance to truth
 is a statement about the scene's ambiguity, not about the sampler, and it is what makes these scenes
 worth putting to people. Report `summary.json`'s posterior spread and the loss map alongside any
-error against truth.
+error against truth. The 65-scene `data-set-3` sweep behaves the same way: the best hypothesis is a
+median 2.7 cm from truth, but four scenes (050, 051, 056, 069) settle 42-79 cm away with a 10-13 cm
+spread, and the posterior mean is far from truth wherever a second hiding place is large enough to
+hold most of the particles.
