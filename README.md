@@ -160,7 +160,16 @@ scripts/isaac.sh uv run pytest -m isaac
 scripts/isaac.sh uv run pytest -m multiworld
 scripts/isaac.sh uv run sp infer data-set/scene017 --num-worlds 64 --iterations 50
 sbatch scripts/infer.sbatch data-set/scene017 --num-worlds 64    # ... or as a batch job
+sbatch scripts/dataset-infer.sbatch data-set-3 data-set-4        # every scene of whole datasets
 ```
+
+`scripts/dataset-infer.sbatch` runs one Isaac Sim session over every scene of the datasets named
+(`sp validate` first, then `sp infer`), writing each scene's results to
+`results/<experiment>/<scene>/<timestamp>-job<id>/` as it finishes. It calls `uv run --no-sync`
+with `PYTHONPATH=src`: the shared environment has this package installed editable at whichever
+spelling of `$HOME` the last `uv sync` used (`/home/...` or `/orcd/home/...`) and only the submit
+path is bound into the container, so a plain `uv run sp` can fail with *No module named
+'scene_physics'* — and a batch job should not rewrite the environment interactive sessions use.
 
 `APPTAINER_BINDPATH` has to be unset **for the build only**: the ORCD module sets it to `/orcd,/nfs`,
 which cannot be bound into the stock Ubuntu rootfs before `%post` creates those mount points.
